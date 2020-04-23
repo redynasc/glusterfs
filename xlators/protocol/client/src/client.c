@@ -2269,7 +2269,7 @@ client_mark_fd_bad(xlator_t *this)
 static int
 is_connection_to_brick(struct rpc_clnt *rpc)
 {
-    return (rpc->conn.config.remote_port != 0);
+    return (rpc->conn.connected != 0);
 }
 
 int

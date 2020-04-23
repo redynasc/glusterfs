@@ -5174,6 +5174,7 @@ __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
     afr_private_t *priv = NULL;
     int up_children = 0;
     int worst_up_child = -1;
+    gf_boolean_t is_check_halo = _gf_true;
     int64_t halo_max_latency_msec = afr_get_halo_latency(this);
 
     priv = this->private;
@@ -5199,43 +5200,50 @@ __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
      */
     if (child_latency_msec < 0 && priv->halo_enabled) {
         /*set to INT64_MAX-1 so that it is found for best_down_child*/
-        priv->child_latency[idx] = AFR_HALO_MAX_LATENCY;
+        /*priv->child_latency[idx] = AFR_HALO_MAX_LATENCY;*/
+        is_check_halo = _gf_false;
+        if (priv->child_latency[idx]>=0){
+            /*has been got vailid ping data*/
+            is_check_halo = _gf_true;
+        }
     }
 
-    /*
-     * Handle the edge case where we exceed
-     * halo_min_replicas and we've got a child which is
-     * marked up as it was helping to satisfy the
-     * halo_min_replicas even though it's latency exceeds
-     * halo_max_latency_msec.
-     */
-    if (up_children > priv->halo_min_replicas) {
-        worst_up_child = find_worst_up_child(this);
-        if (worst_up_child >= 0 &&
-            priv->child_latency[worst_up_child] > halo_max_latency_msec) {
-            gf_msg_debug(this->name, 0,
-                         "Marking child %d down, "
-                         "doesn't meet halo threshold (%" PRId64
-                         "), and > "
-                         "halo_min_replicas (%d)",
-                         worst_up_child, halo_max_latency_msec,
-                         priv->halo_min_replicas);
+    if (is_check_halo){
+        /*
+         * Handle the edge case where we exceed
+         * halo_min_replicas and we've got a child which is
+         * marked up as it was helping to satisfy the
+         * halo_min_replicas even though it's latency exceeds
+         * halo_max_latency_msec.
+         */
+        if (up_children > priv->halo_min_replicas) {
+            worst_up_child = find_worst_up_child(this);
+            if (worst_up_child >= 0 &&
+                priv->child_latency[worst_up_child] > halo_max_latency_msec) {
+                gf_msg_debug(this->name, 0,
+                             "Marking child %d down, "
+                             "doesn't meet halo threshold (%" PRId64
+                             "), and > "
+                             "halo_min_replicas (%d)",
+                             worst_up_child, halo_max_latency_msec,
+                             priv->halo_min_replicas);
+                priv->child_up[worst_up_child] = 0;
+                up_children--;
+            }
+        }
+
+        if (up_children > priv->halo_max_replicas && !priv->shd.iamshd) {
+            worst_up_child = find_worst_up_child(this);
+            if (worst_up_child < 0) {
+                worst_up_child = idx;
+            }
             priv->child_up[worst_up_child] = 0;
             up_children--;
+            gf_msg_debug(this->name, 0,
+                         "Marking child %d down, "
+                         "up_children (%d) > halo_max_replicas (%d)",
+                         worst_up_child, up_children, priv->halo_max_replicas);
         }
-    }
-
-    if (up_children > priv->halo_max_replicas && !priv->shd.iamshd) {
-        worst_up_child = find_worst_up_child(this);
-        if (worst_up_child < 0) {
-            worst_up_child = idx;
-        }
-        priv->child_up[worst_up_child] = 0;
-        up_children--;
-        gf_msg_debug(this->name, 0,
-                     "Marking child %d down, "
-                     "up_children (%d) > halo_max_replicas (%d)",
-                     worst_up_child, up_children, priv->halo_max_replicas);
     }
 
     if (up_children == 1) {
