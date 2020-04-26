@@ -22,7 +22,6 @@
 #include <glusterfs/locking.h>
 #include <glusterfs/timespec.h>
 
-
 int32_t
 fsc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
@@ -99,8 +98,6 @@ unwind:
     return 0;
 }
 
-
-
 int
 fsc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                  int op_errno, gf_dirent_t *entries, dict_t *xdata)
@@ -129,7 +126,6 @@ unwind:
     return 0;
 }
 
-
 int
 fsc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t offset, dict_t *dict)
@@ -141,8 +137,6 @@ fsc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     return 0;
 }
-
-
 
 int
 fsc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
@@ -205,13 +199,16 @@ fsc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
            "fd=%d,offset=%" PRIu64 " size=%" GF_PRI_SIZET
            ", "
            "vec_len=%d,iobref_len=%d,ia_size=(%zu/%zu),local_size=%zu",
-           uuid_utoa(fsc_inode->inode->gfid), fsc_inode->fsc_fd, local->offset, local->size,
-           vec_len, iobref_len, stbuf->ia_size, fsc_inode->ia_size, fsc_inode->fsc_size);
+           uuid_utoa(fsc_inode->inode->gfid), fsc_inode->fsc_fd, local->offset,
+           local->size, vec_len, iobref_len, stbuf->ia_size, fsc_inode->ia_size,
+           fsc_inode->fsc_size);
 
     ret = fsc_block_is_cache(this, fsc_inode, local->offset, vec_len);
-    if ( ret == 0) {
+    if (ret == 0) {
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-               "has cached local file=%s,fd=%d,offset=%zu,size=%d ", fsc_inode->local_path, fsc_inode->fsc_fd, local->offset, vec_len);
+               "has cached local file=%s,fd=%d,offset=%zu,size=%d ",
+               fsc_inode->local_path, fsc_inode->fsc_fd, local->offset,
+               vec_len);
         goto unlock;
     }
 
@@ -222,81 +219,93 @@ fsc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     }
 
     if ((vec_len % 512) != 0) {
-        old_flags = fcntl (fsc_inode->fsc_fd, F_GETFL);
+        old_flags = fcntl(fsc_inode->fsc_fd, F_GETFL);
         if ((old_flags & O_DIRECT)) {
             is_cancel_dio = 1;
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-                   "write remove O_DIRECT file=%s,fd=%d", fsc_inode->local_path, fsc_inode->fsc_fd);
+                   "write remove O_DIRECT file=%s,fd=%d", fsc_inode->local_path,
+                   fsc_inode->fsc_fd);
 
-            if (fcntl (fsc_inode->fsc_fd, F_SETFL, old_flags & ~O_DIRECT) != 0) {
+            if (fcntl(fsc_inode->fsc_fd, F_SETFL, old_flags & ~O_DIRECT) != 0) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-                       "write remove O_DIRECT failed file=%s,fd=%d", fsc_inode->local_path, fsc_inode->fsc_fd);
+                       "write remove O_DIRECT failed file=%s,fd=%d",
+                       fsc_inode->local_path, fsc_inode->fsc_fd);
             }
         }
-
     }
 
     internal_off = local->offset;
     for (idx = 0; idx < count; idx++) {
         tmp = vector[idx].iov_len;
         memcpy(buf, vector[idx].iov_base, tmp);
-        retval = sys_pwrite(fsc_inode->fsc_fd, buf, tmp,
-                            internal_off);
+        retval = sys_pwrite(fsc_inode->fsc_fd, buf, tmp, internal_off);
         if (retval == -1) {
             gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-                   "write local file=%s,fd=%d,offset=%zu,size=%d,failed.", fsc_inode->local_path, fsc_inode->fsc_fd, internal_off, tmp);
+                   "write local file=%s,fd=%d,offset=%zu,size=%d,failed.",
+                   fsc_inode->local_path, fsc_inode->fsc_fd, internal_off, tmp);
             goto unlock;
         }
 
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-               "write local file=%s, offset=%zu, size=%d ", fsc_inode->local_path, internal_off, retval);
+               "write local file=%s, offset=%zu, size=%d ",
+               fsc_inode->local_path, internal_off, retval);
         real_write_len += retval;
         internal_off += retval;
     }
 
     if (is_cancel_dio == 1) {
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-               "write recover O_DIRECT file=%s,fd=%d", fsc_inode->local_path, fsc_inode->fsc_fd);
-        if (fcntl (fsc_inode->fsc_fd, F_SETFL, old_flags | O_DIRECT) != 0) {
+               "write recover O_DIRECT file=%s,fd=%d", fsc_inode->local_path,
+               fsc_inode->fsc_fd);
+        if (fcntl(fsc_inode->fsc_fd, F_SETFL, old_flags | O_DIRECT) != 0) {
             gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-                   "write recover O_DIRECT failed file=%s,fd=%d", fsc_inode->local_path, fsc_inode->fsc_fd);
+                   "write recover O_DIRECT failed file=%s,fd=%d",
+                   fsc_inode->local_path, fsc_inode->fsc_fd);
         }
     }
 
     fsc_block_add(this, fsc_inode, local->offset, real_write_len);
     fsc_inode->fsc_size += real_write_len;
     if (fsc_inode->fsc_size >= fsc_inode->ia_size) {
-
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-               "write local finished fd=%d, file=%s", fsc_inode->fsc_fd, fsc_inode->local_path);
+               "write local finished fd=%d, file=%s", fsc_inode->fsc_fd,
+               fsc_inode->local_path);
         fsc_block_flush(this, fsc_inode);
 
         if (conf->direct_io_read == 1) {
-            old_flags = fcntl (fsc_inode->fsc_fd, F_GETFL);
+            old_flags = fcntl(fsc_inode->fsc_fd, F_GETFL);
             if ((old_flags & O_DIRECT)) {
                 goto unlock;
             }
 
             if (sys_fdatasync(fsc_inode->fsc_fd) == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-                       "fdatasync failed fd=%d, file=%s", fsc_inode->fsc_fd, fsc_inode->local_path);
+                       "fdatasync failed fd=%d, file=%s", fsc_inode->fsc_fd,
+                       fsc_inode->local_path);
             }
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-                   "clear pagecache fdatasync fd=%d, file=%s", fsc_inode->fsc_fd, fsc_inode->local_path);
+                   "clear pagecache fdatasync fd=%d, file=%s",
+                   fsc_inode->fsc_fd, fsc_inode->local_path);
 
             if (fcntl(fsc_inode->fsc_fd, F_SETFL, O_DIRECT | O_RDWR) != 0) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-                       "set directIO read failed fd=%d,file=%s", fsc_inode->fsc_fd, fsc_inode->local_path);
+                       "set directIO read failed fd=%d,file=%s",
+                       fsc_inode->fsc_fd, fsc_inode->local_path);
             }
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-                   "clear pagecache set directIO for read fd=%d, file=%s", fsc_inode->fsc_fd, fsc_inode->local_path);
+                   "clear pagecache set directIO for read fd=%d, file=%s",
+                   fsc_inode->fsc_fd, fsc_inode->local_path);
 
-            if (posix_fadvise(fsc_inode->fsc_fd, 0, 0, POSIX_FADV_DONTNEED) == -1) {
+            if (posix_fadvise(fsc_inode->fsc_fd, 0, 0, POSIX_FADV_DONTNEED) ==
+                -1) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-                       "clear pagecache and set directIO read failed fd=%d, file=%s", fsc_inode->fsc_fd, fsc_inode->local_path);
+                       "clear pagecache and set directIO read failed fd=%d, "
+                       "file=%s",
+                       fsc_inode->fsc_fd, fsc_inode->local_path);
             }
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-                   "clear pagecache fd=%d, file=%s", fsc_inode->fsc_fd, fsc_inode->local_path);
+                   "clear pagecache fd=%d, file=%s", fsc_inode->fsc_fd,
+                   fsc_inode->local_path);
         }
     }
 
@@ -316,7 +325,6 @@ out:
 
     return 0;
 }
-
 
 /*
  * fsc_readv -
@@ -363,7 +371,8 @@ fsc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
     if (!fsc_inode) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-               "fsc_inode readv not find fsc_inode gfid=(%s)", uuid_utoa(fd->inode->gfid));
+               "fsc_inode readv not find fsc_inode gfid=(%s)",
+               uuid_utoa(fd->inode->gfid));
         /* fs caching disabled, go ahead with normal readv */
         STACK_WIND_TAIL(frame, FIRST_CHILD(this),
                         FIRST_CHILD(this)->fops->readv, fd, size, offset, flags,
@@ -379,7 +388,8 @@ fsc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
 
     /* try read from local file*/
-    ret = fsc_inode_read(fsc_inode, frame, this, fd, size, offset, flags, xdata);
+    ret = fsc_inode_read(fsc_inode, frame, this, fd, size, offset, flags,
+                         xdata);
     if (ret >= 0) {
         return 0;
     }
@@ -405,8 +415,7 @@ fsc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
            frame, offset, size);
 
     STACK_WIND(frame, fsc_readv_cbk, FIRST_CHILD(this),
-               FIRST_CHILD(this)->fops->readv, fd,
-               size, offset, 0, xdata);
+               FIRST_CHILD(this)->fops->readv, fd, size, offset, 0, xdata);
 
     return 0;
 
@@ -414,7 +423,6 @@ out:
     STACK_UNWIND_STRICT(readv, frame, -1, op_errno, NULL, 0, NULL, NULL, NULL);
     return 0;
 }
-
 
 /*
  * fsc_forget -
@@ -435,7 +443,8 @@ fsc_forget(xlator_t *this, inode_t *inode)
     fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
     if (fsc_inode) {
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-               "fsc_forget fsc inode %d,path=%s", fsc_inode->fsc_fd, fsc_inode->local_path);
+               "fsc_forget fsc inode %d,path=%s", fsc_inode->fsc_fd,
+               fsc_inode->local_path);
         fsc_inodes_list_lock(conf);
         {
             conf->inodes_count--;
@@ -469,7 +478,6 @@ fsc_priv_dump(xlator_t *this)
     return 0;
 }
 
-
 int32_t
 mem_acct_init(xlator_t *this)
 {
@@ -489,7 +497,6 @@ mem_acct_init(xlator_t *this)
     return ret;
 }
 
-
 static uint32_t
 is_match(const char *path, const char *pattern)
 {
@@ -505,7 +512,7 @@ fsc_check_filter(fsc_conf_t *conf, const char *path)
 {
     int ii;
     gf_boolean_t is_set = _gf_false;
-    char* pattern = NULL;
+    char *pattern = NULL;
     for (ii = 0; ii < 3; ++ii) {
         pattern = conf->filters.pattern[ii];
         if (*pattern == '\0') {
@@ -519,7 +526,9 @@ fsc_check_filter(fsc_conf_t *conf, const char *path)
     return !is_set;
 }
 
-void fsc_print_filters(xlator_t *this, fsc_conf_t *conf) {
+void
+fsc_print_filters(xlator_t *this, fsc_conf_t *conf)
+{
     int ii;
     for (ii = 0; ii < 3; ++ii) {
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
@@ -527,7 +536,9 @@ void fsc_print_filters(xlator_t *this, fsc_conf_t *conf) {
     }
 }
 
-void fsc_resolve_filters(xlator_t *this, fsc_conf_t *conf, char* str) {
+void
+fsc_resolve_filters(xlator_t *this, fsc_conf_t *conf, char *str)
+{
     size_t len;
     size_t unit_len = 0;
     char tmp[512] = {0};
@@ -550,7 +561,6 @@ void fsc_resolve_filters(xlator_t *this, fsc_conf_t *conf, char* str) {
         return;
     }
 
-
     snprintf(tmp, 512 - 1, "%s", str);
     len = strlen(tmp);
     if (tmp[len - 1] != ';') {
@@ -558,7 +568,7 @@ void fsc_resolve_filters(xlator_t *this, fsc_conf_t *conf, char* str) {
         tmp[len + 1] = 0;
     }
 
-    dst = & conf->filters.pattern[idx][0];
+    dst = &conf->filters.pattern[idx][0];
     for (p = tmp; *p; p++) {
         if (*p == ';') {
             *dst = '\0';
@@ -567,7 +577,7 @@ void fsc_resolve_filters(xlator_t *this, fsc_conf_t *conf, char* str) {
                 break;
             }
             /* next */
-            dst = & conf->filters.pattern[idx][0];
+            dst = &conf->filters.pattern[idx][0];
             unit_len = 0;
         } else {
             *dst = *p;
@@ -587,29 +597,39 @@ int
 reconfigure(xlator_t *this, dict_t *options)
 {
     fsc_conf_t *conf = NULL;
-    char* tmp = NULL;
+    char *tmp = NULL;
     int ret = -1;
     if (!this || !this->private)
         goto out;
 
     conf = this->private;
 
-    GF_OPTION_RECONF("fsc-disk-reserve", conf->disk_reserve, options, uint32, out);
-    GF_OPTION_RECONF("fsc-resycle-idle-inode", conf->resycle_idle_inode, options, uint32, out);
-    GF_OPTION_RECONF("fsc-time-idle-inode", conf->time_idle_inode, options, uint32, out);
+    GF_OPTION_RECONF("fsc-disk-reserve", conf->disk_reserve, options, uint32,
+                     out);
+    GF_OPTION_RECONF("fsc-resycle-idle-inode", conf->resycle_idle_inode,
+                     options, uint32, out);
+    GF_OPTION_RECONF("fsc-time-idle-inode", conf->time_idle_inode, options,
+                     uint32, out);
 
-    GF_OPTION_RECONF("fsc-direct-io-read", conf->direct_io_read, options, uint32, out);
-    GF_OPTION_RECONF("fsc-direct-io-write", conf->direct_io_write, options, uint32, out);
+    GF_OPTION_RECONF("fsc-direct-io-read", conf->direct_io_read, options,
+                     uint32, out);
+    GF_OPTION_RECONF("fsc-direct-io-write", conf->direct_io_write, options,
+                     uint32, out);
 
-    GF_OPTION_RECONF("fsc-min-file-size", conf->min_file_size, options, size_uint64, out);
+    GF_OPTION_RECONF("fsc-min-file-size", conf->min_file_size, options,
+                     size_uint64, out);
 
     GF_OPTION_RECONF("fsc-cache-filter", tmp, options, str, out);
     fsc_resolve_filters(this, conf, tmp);
     ret = 0;
 out:
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "fs-cache xlator=%p reconfigure options cache_dir=%s,disk_reserve=%d,resycle_idle_inode=%d,time_idle_inode=%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%zu",
-           this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode, conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write, conf->min_file_size);
+           "fs-cache xlator=%p reconfigure options "
+           "cache_dir=%s,disk_reserve=%d,resycle_idle_inode=%d,time_idle_inode="
+           "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%zu",
+           this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode,
+           conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
+           conf->min_file_size);
 
     return ret;
 }
@@ -619,14 +639,13 @@ init(xlator_t *this)
 {
     fsc_conf_t *conf = NULL;
     int ret = -1;
-    char* tmp = NULL;
+    char *tmp = NULL;
 
     struct stat fstatbuf = {
         0,
     };
     if (!this->children || this->children->next) {
-        gf_msg("fs-cache", GF_LOG_ERROR, 0,
-               FS_CACHE_MSG_ERROR,
+        gf_msg("fs-cache", GF_LOG_ERROR, 0, FS_CACHE_MSG_ERROR,
                "FATAL: iot not configured "
                "with exactly one child");
         goto out;
@@ -645,7 +664,8 @@ init(xlator_t *this)
     }
     GF_OPTION_INIT("fsc-cache-dir", conf->cache_dir, str, out);
     GF_OPTION_INIT("fsc-disk-reserve", conf->disk_reserve, uint32, out);
-    GF_OPTION_INIT("fsc-resycle-idle-inode", conf->resycle_idle_inode, uint32, out);
+    GF_OPTION_INIT("fsc-resycle-idle-inode", conf->resycle_idle_inode, uint32,
+                   out);
     GF_OPTION_INIT("fsc-time-idle-inode", conf->time_idle_inode, uint32, out);
 
     GF_OPTION_INIT("fsc-direct-io-read", conf->direct_io_read, uint32, out);
@@ -656,17 +676,20 @@ init(xlator_t *this)
     ret = sys_stat(conf->cache_dir, &fstatbuf);
     if (ret == -1) {
         gf_msg("fs-cache", GF_LOG_ERROR, 0, FS_CACHE_MSG_ERROR,
-               "init not find path=(%s)",   conf->cache_dir);
+               "init not find path=(%s)", conf->cache_dir);
         conf->is_enable = _gf_false;
     }
 
     GF_OPTION_INIT("fsc-cache-filter", tmp, str, out);
     fsc_resolve_filters(this, conf, tmp);
 
-
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "fs-cache xlator=%p init options cache_dir=%s,disk_reserve=%d,resycle_idle_inode=%d,time_idle_inode=%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%zu",
-           this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode, conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write, conf->min_file_size);
+           "fs-cache xlator=%p init options "
+           "cache_dir=%s,disk_reserve=%d,resycle_idle_inode=%d,time_idle_inode="
+           "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%zu",
+           this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode,
+           conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
+           conf->min_file_size);
 
     INIT_LIST_HEAD(&conf->inodes);
     pthread_mutex_init(&conf->inodes_lock, NULL);
@@ -706,33 +729,33 @@ fsc_notify(xlator_t *this, int event, void *data, ...)
     gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_DEBUG,
            "fs-cache xlator=%p notify %d", this, event);
     switch (event) {
-    case GF_EVENT_PARENT_DOWN: {
-        gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-               "fs-cache xlator=%p down", this);
+        case GF_EVENT_PARENT_DOWN: {
+            gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                   "fs-cache xlator=%p down", this);
 
-        INIT_LIST_HEAD(&clear_list);
+            INIT_LIST_HEAD(&clear_list);
 
-        fsc_inodes_list_lock(conf);
-        {
-            list_replace_init(&conf->inodes, &clear_list);
-            conf->inodes_count = 0;
+            fsc_inodes_list_lock(conf);
+            {
+                list_replace_init(&conf->inodes, &clear_list);
+                conf->inodes_count = 0;
+            }
+            fsc_inodes_list_unlock(conf);
+
+            list_for_each_entry_safe(curr, tmp, &clear_list, inode_list)
+            {
+                list_del(&curr->inode_list);
+                fsc_inode_destroy(curr, 3);
+            }
+
+            if (conf->aux_thread) {
+                conf->aux_thread_active = _gf_false;
+                (void)gf_thread_cleanup_xint(conf->aux_thread);
+                conf->aux_thread = 0;
+            }
         }
-        fsc_inodes_list_unlock(conf);
-
-        list_for_each_entry_safe(curr, tmp, &clear_list, inode_list)
-        {
-            list_del(&curr->inode_list);
-            fsc_inode_destroy(curr, 3);
-        }
-
-        if (conf->aux_thread) {
-            conf->aux_thread_active = _gf_false;
-            (void)gf_thread_cleanup_xint(conf->aux_thread);
-            conf->aux_thread = 0;
-        }
-    }
-    default:
-        break;
+        default:
+            break;
     }
 
     if (default_notify(this, event, data) != 0)
@@ -740,8 +763,6 @@ fsc_notify(xlator_t *this, int event, void *data, ...)
 
     return ret;
 }
-
-
 
 void
 fini(xlator_t *this)
@@ -798,67 +819,59 @@ struct volume_options options[] = {
         .tags = {"fsc"},
         .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
         .default_value = "",
-        .description = "file cache local disk only when match the pattern, the length of pattern string limit 128, split by semicolon",
+        .description = "file cache local disk only when match the pattern, the "
+                       "length of pattern string limit 128, split by semicolon",
     },
 
-    {
-        .key = {"fsc-disk-reserve"},
-        .type = GF_OPTION_TYPE_INT,
-        .min = 10,
-        .max = 90,
-        .default_value = "10",
-        .tags = {"fsc"},
-        .description = "Size of free space in disk.",
-        .op_version = {1},
-        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
-    },
-    {
-        .key = {"fsc-resycle-idle-inode"},
-        .type = GF_OPTION_TYPE_INT,
-        .min = 0,
-        .max = 1,
-        .default_value = "1",
-        .tags = {"fsc"},
-        .description = "enable or disable resycle idle fsc-node",
-        .op_version = {1},
-        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
-    },
+    {.key = {"fsc-disk-reserve"},
+     .type = GF_OPTION_TYPE_INT,
+     .min = 10,
+     .max = 90,
+     .default_value = "10",
+     .tags = {"fsc"},
+     .description = "Size of free space in disk.",
+     .op_version = {1},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"fsc-resycle-idle-inode"},
+     .type = GF_OPTION_TYPE_INT,
+     .min = 0,
+     .max = 1,
+     .default_value = "1",
+     .tags = {"fsc"},
+     .description = "enable or disable resycle idle fsc-node",
+     .op_version = {1},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
 
-    {
-        .key = {"fsc-direct-io-read"},
-        .type = GF_OPTION_TYPE_INT,
-        .min = 0,
-        .max = 1,
-        .default_value = "1",
-        .tags = {"fsc"},
-        .description = "enable or disable Direct IO when read date from disk",
-        .op_version = {1},
-        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
-    },
+    {.key = {"fsc-direct-io-read"},
+     .type = GF_OPTION_TYPE_INT,
+     .min = 0,
+     .max = 1,
+     .default_value = "1",
+     .tags = {"fsc"},
+     .description = "enable or disable Direct IO when read date from disk",
+     .op_version = {1},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
 
-    {
-        .key = {"fsc-direct-io-write"},
-        .type = GF_OPTION_TYPE_INT,
-        .min = 0,
-        .max = 1,
-        .default_value = "0",
-        .tags = {"fsc"},
-        .description = "enable or disable Direct IO when write to disk",
-        .op_version = {1},
-        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
-    },
+    {.key = {"fsc-direct-io-write"},
+     .type = GF_OPTION_TYPE_INT,
+     .min = 0,
+     .max = 1,
+     .default_value = "0",
+     .tags = {"fsc"},
+     .description = "enable or disable Direct IO when write to disk",
+     .op_version = {1},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
 
-    {
-        .key = {"fsc-time-idle-inode"},
-        .type = GF_OPTION_TYPE_INT,
-        .min = 600,
-        .max = 31536000,
-        .default_value = "3600",
-        .tags = {"fsc"},
-        .description = "inode will be in idle status, when inode is not accessed within this time (sec)",
-        .op_version = {1},
-        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
-    },
+    {.key = {"fsc-time-idle-inode"},
+     .type = GF_OPTION_TYPE_INT,
+     .min = 600,
+     .max = 31536000,
+     .default_value = "3600",
+     .tags = {"fsc"},
+     .description = "inode will be in idle status, when inode is not accessed "
+                    "within this time (sec)",
+     .op_version = {1},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
 
     {.key = {"fsc-min-file-size"},
      .type = GF_OPTION_TYPE_SIZET,
@@ -866,8 +879,7 @@ struct volume_options options[] = {
      .description = "Minimum file size which would be cached by the "
                     "fs-cache translator.",
      .op_version = {1},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
-    },
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
 
     {.key = {NULL}},
 };

@@ -22,8 +22,6 @@
 #include <glusterfs/locking.h>
 #include <glusterfs/timespec.h>
 
-
-
 void
 fsc_disk_space_check(xlator_t *this)
 {
@@ -65,7 +63,8 @@ fsc_disk_space_check(xlator_t *this)
     freesz = (buf.f_bfree * buf.f_bsize);
 
     gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-           "xl=%p,conf=%p,free size=%" PRIu64 "MB", this, conf, freesz / 1024 / 1024);
+           "xl=%p,conf=%p,free size=%" PRIu64 "MB", this, conf,
+           freesz / 1024 / 1024);
 
     if (freesz <= ((totsz * percent) / 100)) {
         conf->disk_space_full = 1;
@@ -130,8 +129,8 @@ fsc_aux_thread_proc(void *data)
     clear_interval = 600 / interval;
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "fsc_aux thread started xlator=%p,interval = %d seconds",
-           this, interval);
+           "fsc_aux thread started xlator=%p,interval = %d seconds", this,
+           interval);
     while (1) {
         /* aborting sleep() is a request to exit this thread, sleep()
          * will normally not return when cancelled */
@@ -148,7 +147,7 @@ fsc_aux_thread_proc(void *data)
         if (!conf->aux_thread_active)
             goto out;
 
-        if ( (clear_count % clear_interval) == 0 ) {
+        if ((clear_count % clear_interval) == 0) {
             fsc_clear_idle_node(this);
         }
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
@@ -183,8 +182,7 @@ fsc_spawn_aux_thread(xlator_t *xl)
             conf->aux_thread_active = _gf_false;
         }
 
-        ret = gf_thread_create(&conf->aux_thread, NULL,
-                               fsc_aux_thread_proc, xl,
+        ret = gf_thread_create(&conf->aux_thread, NULL, fsc_aux_thread_proc, xl,
                                "fsc_aux");
         if (ret) {
             conf->aux_thread_active = _gf_false;

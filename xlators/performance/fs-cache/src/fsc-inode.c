@@ -46,16 +46,16 @@ fsc_inode_is_idle(fsc_inode_t *fsc_inode)
 }
 
 fsc_inode_t *
-fsc_inode_create(xlator_t *this, inode_t *inode, char* path)
+fsc_inode_create(xlator_t *this, inode_t *inode, char *path)
 {
     int32_t local_path_len = 0;
-    fsc_conf_t* priv = this->private;
+    fsc_conf_t *priv = this->private;
     fsc_inode_t *fsc_inode = NULL;
-    char* base_str = NULL;
+    char *base_str = NULL;
     int32_t base_len = 0;
-    char* base_cur = NULL;
-    char* tmp = NULL;
-    char  tmm_val = 0;
+    char *base_cur = NULL;
+    char *tmp = NULL;
+    char tmm_val = 0;
     fsc_inode = GF_CALLOC(1, sizeof(fsc_inode_t), gf_fsc_mt_fsc_inode_t);
     if (fsc_inode == NULL) {
         goto out;
@@ -63,13 +63,12 @@ fsc_inode_create(xlator_t *this, inode_t *inode, char* path)
     fsc_inode->conf = priv;
     fsc_inode->inode = inode_ref(inode);
 
-
-    if ( strncmp(path, "<gfid:", 6) == 0 ) {
+    if (strncmp(path, "<gfid:", 6) == 0) {
         /*<gfid:c8fca0b4-f94c-490a-9b9b-0e7f9cb7f443>/file*/
         base_str = alloca(strlen(path) + 1);
         base_cur = base_str;
         tmp = path + 6;
-        while ( (tmm_val = *tmp++) != 0 ) {
+        while ((tmm_val = *tmp++) != 0) {
             if (tmm_val != '<' && tmm_val != '>') {
                 *base_cur = tmm_val;
                 base_cur++;
@@ -79,15 +78,17 @@ fsc_inode_create(xlator_t *this, inode_t *inode, char* path)
         *base_cur = 0;
 
         local_path_len = strlen(priv->cache_dir) + base_len + 1;
-        fsc_inode->local_path = GF_CALLOC(1, local_path_len + 1, gf_fsc_mt_fsc_path_t);
-        local_path_len = snprintf(fsc_inode->local_path, local_path_len + 1, "%s/%s",
-                                  priv->cache_dir, base_str);
+        fsc_inode->local_path = GF_CALLOC(1, local_path_len + 1,
+                                          gf_fsc_mt_fsc_path_t);
+        local_path_len = snprintf(fsc_inode->local_path, local_path_len + 1,
+                                  "%s/%s", priv->cache_dir, base_str);
 
     } else {
         local_path_len = strlen(priv->cache_dir) + strlen(path);
-        fsc_inode->local_path = GF_CALLOC(1, local_path_len + 1, gf_fsc_mt_fsc_path_t);
-        local_path_len = snprintf(fsc_inode->local_path, local_path_len + 1, "%s%s",
-                                  priv->cache_dir, path);
+        fsc_inode->local_path = GF_CALLOC(1, local_path_len + 1,
+                                          gf_fsc_mt_fsc_path_t);
+        local_path_len = snprintf(fsc_inode->local_path, local_path_len + 1,
+                                  "%s%s", priv->cache_dir, path);
     }
 
     gettimeofday(&fsc_inode->last_op_time, NULL);
@@ -102,16 +103,19 @@ fsc_inode_create(xlator_t *this, inode_t *inode, char* path)
     }
     fsc_inodes_list_unlock(priv);
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "adding to fsc=%p inode_list path=(%s),real_path=(%s)", fsc_inode, path, fsc_inode->local_path);
+           "adding to fsc=%p inode_list path=(%s),real_path=(%s)", fsc_inode,
+           path, fsc_inode->local_path);
 out:
     return fsc_inode;
 }
 
-void fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
+void
+fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
 {
-    fsc_conf_t* conf = fsc_inode->conf;
+    fsc_conf_t *conf = fsc_inode->conf;
     gf_msg(conf->this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "xlator=%p, destroy fsc tag=%d,fd=%d,path=%s", conf->this, tag, fsc_inode->fsc_fd, fsc_inode->local_path);
+           "xlator=%p, destroy fsc tag=%d,fd=%d,path=%s", conf->this, tag,
+           fsc_inode->fsc_fd, fsc_inode->local_path);
 
     inode_ctx_put(fsc_inode->inode, conf->this, (uint64_t)0);
     inode_ref(fsc_inode->inode);
@@ -131,7 +135,6 @@ void fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
     GF_FREE(fsc_inode);
 }
 
-
 int32_t
 fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
 {
@@ -146,14 +149,13 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     conf = this->private;
     if (iabuf->ia_size < conf->min_file_size) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-               "ignore small file path=%s, %zu < %zu", path, iabuf->ia_size, conf->min_file_size);
+               "ignore small file path=%s, %zu < %zu", path, iabuf->ia_size,
+               conf->min_file_size);
         goto out;
     }
 
-
     if (!path) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, FS_CACHE_MSG_ERROR,
-               "invalid path");
+        gf_msg(this->name, GF_LOG_ERROR, 0, FS_CACHE_MSG_ERROR, "invalid path");
         goto out;
     }
 
@@ -186,15 +188,17 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     fsc_inode_unlock(fsc_inode);
 
     gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-           "fsc_inode fsc=%p update ia_size from %zu to %zu, path=%s, local_path=(%s),gfid=(%s)",
-           fsc_inode, old_ia_size, fsc_inode->ia_size, path, fsc_inode->local_path, uuid_utoa(inode->gfid));
+           "fsc_inode fsc=%p update ia_size from %zu to %zu, path=%s, "
+           "local_path=(%s),gfid=(%s)",
+           fsc_inode, old_ia_size, fsc_inode->ia_size, path,
+           fsc_inode->local_path, uuid_utoa(inode->gfid));
 out:
     return 0;
 }
 
-
 int32_t
-fsc_inode_open_for_read(xlator_t *this, fsc_inode_t *fsc_inode) {
+fsc_inode_open_for_read(xlator_t *this, fsc_inode_t *fsc_inode)
+{
     int32_t op_ret = -1;
     int32_t op_errno = 0;
     int32_t flag = O_RDWR;
@@ -214,35 +218,41 @@ fsc_inode_open_for_read(xlator_t *this, fsc_inode_t *fsc_inode) {
 
     op_ret = sys_stat(fsc_inode->local_path, &fstatbuf);
     if (op_ret == -1) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, FS_CACHE_MSG_ERROR, "fsc_inode open for read not find path=(%s),gfid=(%s)",
+        gf_msg(this->name, GF_LOG_ERROR, 0, FS_CACHE_MSG_ERROR,
+               "fsc_inode open for read not find path=(%s),gfid=(%s)",
                fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
         goto out;
     }
 
-    fsc_inode->fsc_fd = sys_open(fsc_inode->local_path, flag, S_IRWXU | S_IRWXG | S_IRWXO);
+    fsc_inode->fsc_fd = sys_open(fsc_inode->local_path, flag,
+                                 S_IRWXU | S_IRWXG | S_IRWXO);
     if (fsc_inode->fsc_fd == -1) {
         op_ret = -1;
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-               "open on %s, flags: %d", fsc_inode->local_path, O_DIRECT | O_RDWR);
+               "open on %s, flags: %d", fsc_inode->local_path,
+               O_DIRECT | O_RDWR);
         goto out;
     }
     fsc_block_init(this, fsc_inode);
     /*fsc_inode->fsc_size = fstatbuf.st_size;*/
-    gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_INFO, "fsc_inode open for read fd=%d,localsize=%zu,serversize=%zu path=(%s),gfid=(%s)",
-           fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->ia_size, fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
+    gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_INFO,
+           "fsc_inode open for read fd=%d,localsize=%zu,serversize=%zu "
+           "path=(%s),gfid=(%s)",
+           fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->ia_size,
+           fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
 out:
     return op_ret;
 }
 
-
 int32_t
-fsc_inode_resovle_dir(xlator_t *this, char* file_full_path) {
+fsc_inode_resovle_dir(xlator_t *this, char *file_full_path)
+{
     char tmp[512];
     char *p = NULL;
     size_t len;
     size_t base_len;
-    fsc_conf_t* priv = this->private;
+    fsc_conf_t *priv = this->private;
 
     snprintf(tmp, sizeof(tmp), "%s", file_full_path);
     len = strlen(tmp);
@@ -266,7 +276,8 @@ fsc_inode_resovle_dir(xlator_t *this, char* file_full_path) {
 }
 
 int32_t
-fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode) {
+fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode)
+{
     int32_t op_ret = -1;
     int32_t op_errno = 0;
     int32_t flag = O_RDWR | O_CREAT;
@@ -285,7 +296,8 @@ fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode) {
     }
     fsc_inode_resovle_dir(this, fsc_inode->local_path);
 
-    fsc_inode->fsc_fd = sys_open(fsc_inode->local_path, flag, S_IRWXU | S_IRWXG | S_IRWXO);
+    fsc_inode->fsc_fd = sys_open(fsc_inode->local_path, flag,
+                                 S_IRWXU | S_IRWXG | S_IRWXO);
     if (fsc_inode->fsc_fd == -1) {
         op_ret = -1;
         op_errno = errno;
@@ -302,17 +314,20 @@ fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode) {
     }
     fsc_block_init(this, fsc_inode);
     /*fsc_inode->fsc_size = fstatbuf.st_size;*/
-    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO, "fsc_inode open for write fd=%d,localsize=%zu,serversize=%zu path=(%s),gfid=(%s)",
-           fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->ia_size, fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+           "fsc_inode open for write fd=%d,localsize=%zu,serversize=%zu "
+           "path=(%s),gfid=(%s)",
+           fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->ia_size,
+           fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
 out:
     return op_ret;
 }
 
-
 int32_t
-fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-               off_t offset, uint32_t flags, dict_t *xdata) {
-
+fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
+               fd_t *fd, size_t size, off_t offset, uint32_t flags,
+               dict_t *xdata)
+{
     int32_t op_ret = -1;
     int32_t op_errno = 0;
     gf_boolean_t is_fault = _gf_true;
@@ -362,7 +377,8 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this, fd_t
                "fd=%d, offset=%" PRIu64 " size=%" GF_PRI_SIZET
                ", "
                "buf=%p",
-               uuid_utoa(fsc_inode->inode->gfid), fsc_inode->fsc_fd, offset, size, iobuf->ptr);
+               uuid_utoa(fsc_inode->inode->gfid), fsc_inode->fsc_fd, offset,
+               size, iobuf->ptr);
         op_ret = -1;
         goto out;
     }
@@ -370,8 +386,10 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this, fd_t
     if ((offset + op_ret) >= fsc_inode->ia_size) {
         /*op_errno = ENOENT;*/
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-               "fsc_inode read local finish=(%s),fd=%d, offset=%zu,req_size=%zu, rsp_size=%d, op_errno=%d",
-               fsc_inode->local_path, fsc_inode->fsc_fd, offset, size, op_ret, op_errno);
+               "fsc_inode read local finish=(%s),fd=%d, "
+               "offset=%zu,req_size=%zu, rsp_size=%d, op_errno=%d",
+               fsc_inode->local_path, fsc_inode->fsc_fd, offset, size, op_ret,
+               op_errno);
     }
 
     vec.iov_base = iobuf->ptr;
@@ -380,8 +398,10 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this, fd_t
     iobref_add(iobref, iobuf);
 
     gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-           "fsc_inode read local=(%s),fd=%d, offset=%zu,req_size=%zu, rsp_size=%d, op_errno=%d",
-           fsc_inode->local_path, fsc_inode->fsc_fd, offset, size, op_ret, op_errno);
+           "fsc_inode read local=(%s),fd=%d, offset=%zu,req_size=%zu, "
+           "rsp_size=%d, op_errno=%d",
+           fsc_inode->local_path, fsc_inode->fsc_fd, offset, size, op_ret,
+           op_errno);
 
     STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, &vec, 1, &stbuf, iobref,
                         rsp_xdata);
@@ -399,7 +419,8 @@ fsc_page_aligned_alloc(size_t size, char **aligned_buf)
     char *alloc_buf = NULL;
     char *buf = NULL;
 
-    alloc_buf = GF_CALLOC(1, (size + ALIGN_SIZE), gf_fsc_mt_fsc_posix_page_aligned_t);
+    alloc_buf = GF_CALLOC(1, (size + ALIGN_SIZE),
+                          gf_fsc_mt_fsc_posix_page_aligned_t);
     if (!alloc_buf)
         goto out;
     /* page aligned buffer */

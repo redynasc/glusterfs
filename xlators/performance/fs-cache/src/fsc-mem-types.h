@@ -14,12 +14,12 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_fsc_mem_types_ {
-  gf_fsc_mt_flag = gf_common_mt_end + 1,
-  gf_fsc_mt_fsc_inode_t,
-  gf_fsc_mt_fsc_path_t,
-  gf_fsc_mt_fsc_posix_page_aligned_t,
-  gf_fsc_mt_fsc_block_t,
-  gf_fsc_mt_fsc_block_dump_t,
-  gf_fsc_mt_end
+    gf_fsc_mt_flag = gf_common_mt_end + 1,
+    gf_fsc_mt_fsc_inode_t,
+    gf_fsc_mt_fsc_path_t,
+    gf_fsc_mt_fsc_posix_page_aligned_t,
+    gf_fsc_mt_fsc_block_t,
+    gf_fsc_mt_fsc_block_dump_t,
+    gf_fsc_mt_end
 };
 #endif
