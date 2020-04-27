@@ -624,10 +624,10 @@ reconfigure(xlator_t *this, dict_t *options)
     ret = 0;
 out:
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "fs-cache xlator=%p reconfigure options "
+           "fs-cache[%s] xlator=%p reconfigure options "
            "cache_dir=%s,disk_reserve=%d,resycle_idle_inode=%d,time_idle_inode="
            "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%zu",
-           this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode,
+           FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode,
            conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
            conf->min_file_size);
 
@@ -684,10 +684,10 @@ init(xlator_t *this)
     fsc_resolve_filters(this, conf, tmp);
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "fs-cache xlator=%p init options "
+           "fs-cache[%s] xlator=%p init options "
            "cache_dir=%s,disk_reserve=%d,resycle_idle_inode=%d,time_idle_inode="
            "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%zu",
-           this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode,
+           FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode,
            conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
            conf->min_file_size);
 

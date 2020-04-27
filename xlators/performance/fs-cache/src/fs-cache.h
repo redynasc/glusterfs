@@ -29,6 +29,9 @@ struct fsc_conf;
 struct fsc_inode;
 struct fsc_block;
 
+
+#define FSC_CACHE_VERSION "v0.0.1"
+
 #define FSC_CACHE_PATTERN_LEN 128
 struct fsc_filter {
     char pattern[3][128];

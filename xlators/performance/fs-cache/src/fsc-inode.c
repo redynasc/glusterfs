@@ -218,7 +218,7 @@ fsc_inode_open_for_read(xlator_t *this, fsc_inode_t *fsc_inode)
 
     op_ret = sys_stat(fsc_inode->local_path, &fstatbuf);
     if (op_ret == -1) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, FS_CACHE_MSG_ERROR,
+        gf_msg(this->name, GF_LOG_WARNING, 0, FS_CACHE_MSG_WARNING,
                "fsc_inode open for read not find path=(%s),gfid=(%s)",
                fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
         goto out;

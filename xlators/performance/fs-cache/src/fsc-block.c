@@ -143,7 +143,7 @@ fsc_block_init(xlator_t *this, fsc_inode_t *inode)
 
     ret = sys_fgetxattr(inode->fsc_fd, BLOCK_ATTR_NAME, buff, 512 * 1024);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
+        gf_msg(this->name, GF_LOG_WARNING, errno, FS_CACHE_MSG_WARNING,
                "sys_fgetxattr error fd=%d,path=(%s)", inode->fsc_fd,
                inode->local_path);
     } else {
@@ -193,8 +193,8 @@ fsc_block_init(xlator_t *this, fsc_inode_t *inode)
     }
     fsc_block_dump(this, inode, "init");
     inode->fsc_size = valid_cache_size;
-    GF_FREE(buff);
 out:
+    GF_FREE(buff);
     return 0;
 }
 
