@@ -118,7 +118,7 @@ fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
            fsc_inode->fsc_fd, fsc_inode->local_path);
 
     inode_ctx_put(fsc_inode->inode, conf->this, (uint64_t)0);
-    inode_ref(fsc_inode->inode);
+    inode_unref(fsc_inode->inode);
 
     fsc_inode_lock(fsc_inode);
     {

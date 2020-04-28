@@ -128,6 +128,8 @@ fsc_aux_thread_proc(void *data)
     interval = 15;
     clear_interval = 600 / interval;
 
+    glusterfs_this_set(this);
+
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fsc_aux thread started xlator=%p,interval = %d seconds", this,
            interval);
