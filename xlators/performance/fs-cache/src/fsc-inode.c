@@ -200,7 +200,6 @@ int32_t
 fsc_inode_open_for_read(xlator_t *this, fsc_inode_t *fsc_inode)
 {
     int32_t op_ret = -1;
-    int32_t op_errno = 0;
     int32_t flag = O_RDWR;
     fsc_conf_t *conf = this->private;
     struct stat fstatbuf = {
@@ -228,7 +227,6 @@ fsc_inode_open_for_read(xlator_t *this, fsc_inode_t *fsc_inode)
                                  S_IRWXU | S_IRWXG | S_IRWXO);
     if (fsc_inode->fsc_fd == -1) {
         op_ret = -1;
-        op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
                "open on %s, flags: %d", fsc_inode->local_path,
                O_DIRECT | O_RDWR);
@@ -279,7 +277,6 @@ int32_t
 fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode)
 {
     int32_t op_ret = -1;
-    int32_t op_errno = 0;
     int32_t flag = O_RDWR | O_CREAT;
     fsc_conf_t *conf = this->private;
     struct stat fstatbuf = {
@@ -300,7 +297,6 @@ fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode)
                                  S_IRWXU | S_IRWXG | S_IRWXO);
     if (fsc_inode->fsc_fd == -1) {
         op_ret = -1;
-        op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
                "open on %s failed", fsc_inode->local_path);
         goto out;
