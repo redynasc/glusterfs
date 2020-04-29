@@ -354,7 +354,7 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
         op_ret = -1;
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_inode fault=(%s),fd=%d, offset=%" PRId64
-               ",req_size=%" PRIu64,
+               ",req_size=%" GF_PRI_SIZET,
                fsc_inode->local_path, fsc_inode->fsc_fd, offset, size);
         goto out;
     }
@@ -385,7 +385,7 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
         /*op_errno = ENOENT;*/
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                "fsc_inode read local finish=(%s),fd=%d, "
-               "offset=%" PRId64 ",req_size=%" PRIu64
+               "offset=%" PRId64 ",req_size=%" GF_PRI_SIZET
                ", rsp_size=%d, op_errno=%d",
                fsc_inode->local_path, fsc_inode->fsc_fd, offset, size, op_ret,
                op_errno);
@@ -398,7 +398,7 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
 
     gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
            "fsc_inode read local=(%s),fd=%d, offset=%" PRId64
-           ",req_size=%" PRIu64
+           ",req_size=%" GF_PRI_SIZET
            ", "
            "rsp_size=%d, op_errno=%d",
            fsc_inode->local_path, fsc_inode->fsc_fd, offset, size, op_ret,
