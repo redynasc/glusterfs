@@ -198,7 +198,8 @@ fsc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
            "readv_cbk on gfid=%s, "
            "fd=%d,offset=%" PRIu64 " size=%" GF_PRI_SIZET
            ", "
-           "vec_len=%d,iobref_len=%d,ia_size=(%zu/%zu),local_size=%zu",
+           "vec_len=%d,iobref_len=%d,ia_size=(%" PRIu64 "/%" PRIu64
+           "),local_size=%" PRId64,
            uuid_utoa(fsc_inode->inode->gfid), fsc_inode->fsc_fd, local->offset,
            local->size, vec_len, iobref_len, stbuf->ia_size, fsc_inode->ia_size,
            fsc_inode->fsc_size);
@@ -206,7 +207,7 @@ fsc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     ret = fsc_block_is_cache(this, fsc_inode, local->offset, vec_len);
     if (ret == 0) {
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-               "has cached local file=%s,fd=%d,offset=%zu,size=%d ",
+               "has cached local file=%s,fd=%d,offset=%" PRId64 ",size=%d ",
                fsc_inode->local_path, fsc_inode->fsc_fd, local->offset,
                vec_len);
         goto unlock;
@@ -241,13 +242,14 @@ fsc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         retval = sys_pwrite(fsc_inode->fsc_fd, buf, tmp, internal_off);
         if (retval == -1) {
             gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-                   "write local file=%s,fd=%d,offset=%zu,size=%d,failed.",
+                   "write local file=%s,fd=%d,offset=%" PRId64
+                   ",size=%d,failed.",
                    fsc_inode->local_path, fsc_inode->fsc_fd, internal_off, tmp);
             goto unlock;
         }
 
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-               "write local file=%s, offset=%zu, size=%d ",
+               "write local file=%s, offset=%" PRId64 ", size=%d ",
                fsc_inode->local_path, internal_off, retval);
         real_write_len += retval;
         internal_off += retval;
@@ -626,10 +628,10 @@ out:
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fs-cache[%s] xlator=%p reconfigure options "
            "cache_dir=%s,disk_reserve=%d,resycle_idle_inode=%d,time_idle_inode="
-           "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%zu",
-           FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode,
-           conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
-           conf->min_file_size);
+           "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%" PRIu64,
+           FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve,
+           conf->resycle_idle_inode, conf->time_idle_inode,
+           conf->direct_io_read, conf->direct_io_write, conf->min_file_size);
 
     return ret;
 }
@@ -686,10 +688,10 @@ init(xlator_t *this)
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fs-cache[%s] xlator=%p init options "
            "cache_dir=%s,disk_reserve=%d,resycle_idle_inode=%d,time_idle_inode="
-           "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%zu",
-           FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve, conf->resycle_idle_inode,
-           conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
-           conf->min_file_size);
+           "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%" PRIu64,
+           FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve,
+           conf->resycle_idle_inode, conf->time_idle_inode,
+           conf->direct_io_read, conf->direct_io_write, conf->min_file_size);
 
     INIT_LIST_HEAD(&conf->inodes);
     pthread_mutex_init(&conf->inodes_lock, NULL);

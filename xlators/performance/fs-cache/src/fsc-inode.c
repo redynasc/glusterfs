@@ -149,8 +149,8 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     conf = this->private;
     if (iabuf->ia_size < conf->min_file_size) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-               "ignore small file path=%s, %zu < %zu", path, iabuf->ia_size,
-               conf->min_file_size);
+               "ignore small file path=%s, %" PRIu64 "<  %" PRIu6, path,
+               iabuf->ia_size, conf->min_file_size);
         goto out;
     }
 
@@ -188,7 +188,8 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     fsc_inode_unlock(fsc_inode);
 
     gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-           "fsc_inode fsc=%p update ia_size from %zu to %zu, path=%s, "
+           "fsc_inode fsc=%p update ia_size from %" PRId64 " to %" PRIu64
+           ", path=%s, "
            "local_path=(%s),gfid=(%s)",
            fsc_inode, old_ia_size, fsc_inode->ia_size, path,
            fsc_inode->local_path, uuid_utoa(inode->gfid));
@@ -235,8 +236,8 @@ fsc_inode_open_for_read(xlator_t *this, fsc_inode_t *fsc_inode)
     fsc_block_init(this, fsc_inode);
     /*fsc_inode->fsc_size = fstatbuf.st_size;*/
     gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_INFO,
-           "fsc_inode open for read fd=%d,localsize=%zu,serversize=%zu "
-           "path=(%s),gfid=(%s)",
+           "fsc_inode open for read fd=%d,localsize=%" PRId64
+           ",serversize=%" PRIu64 ",path=(%s),gfid=(%s)",
            fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->ia_size,
            fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
 out:
@@ -311,8 +312,8 @@ fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode)
     fsc_block_init(this, fsc_inode);
     /*fsc_inode->fsc_size = fstatbuf.st_size;*/
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "fsc_inode open for write fd=%d,localsize=%zu,serversize=%zu "
-           "path=(%s),gfid=(%s)",
+           "fsc_inode open for write fd=%d,localsize=%" PRId64
+           ",serversize=%" PRIu64 ",path=(%s),gfid=(%s)",
            fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->ia_size,
            fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
 out:
@@ -352,7 +353,8 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     if (is_fault) {
         op_ret = -1;
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-               "fsc_inode fault=(%s),fd=%d, offset=%zu,req_size=%zu",
+               "fsc_inode fault=(%s),fd=%d, offset=%" PRId64
+               ",req_size=%" PRIu64,
                fsc_inode->local_path, fsc_inode->fsc_fd, offset, size);
         goto out;
     }
@@ -383,7 +385,8 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
         /*op_errno = ENOENT;*/
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                "fsc_inode read local finish=(%s),fd=%d, "
-               "offset=%zu,req_size=%zu, rsp_size=%d, op_errno=%d",
+               "offset=%" PRId64 ",req_size=%" PRIu64
+               ", rsp_size=%d, op_errno=%d",
                fsc_inode->local_path, fsc_inode->fsc_fd, offset, size, op_ret,
                op_errno);
     }
@@ -394,7 +397,9 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     iobref_add(iobref, iobuf);
 
     gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-           "fsc_inode read local=(%s),fd=%d, offset=%zu,req_size=%zu, "
+           "fsc_inode read local=(%s),fd=%d, offset=%" PRId64
+           ",req_size=%" PRIu64
+           ", "
            "rsp_size=%d, op_errno=%d",
            fsc_inode->local_path, fsc_inode->fsc_fd, offset, size, op_ret,
            op_errno);
