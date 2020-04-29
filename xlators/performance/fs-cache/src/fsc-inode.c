@@ -149,7 +149,7 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     conf = this->private;
     if (iabuf->ia_size < conf->min_file_size) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
-               "ignore small file path=%s, %" PRIu64 "<  %" PRIu6, path,
+               "ignore small file path=%s, %" PRIu64 "<  %" PRIu64, path,
                iabuf->ia_size, conf->min_file_size);
         goto out;
     }
