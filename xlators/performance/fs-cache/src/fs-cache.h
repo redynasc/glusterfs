@@ -48,7 +48,7 @@ struct fsc_inode {
                           * seconds component of file mtime
                           */
     time_t s_mtime_nsec; /*
-                          * nanosecond component of file mtime
+                          * nanosecond component of file mtime,may be used in future
                           */
 
     /*meta data of file on local */
