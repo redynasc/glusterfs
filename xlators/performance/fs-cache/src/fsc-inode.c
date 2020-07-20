@@ -174,7 +174,7 @@ fsc_inode_to_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
     iatt->ia_ctime_nsec = fsc_inode->s_ctime_nsec;
     iatt->ia_rdev = fsc_inode->s_rdev;
     iatt->ia_size = fsc_inode->s_size;
-    iatt->ia_blocks = fsc_inode->s_block;
+    iatt->ia_blocks = fsc_inode->s_blocks;
 }
 
 int32_t
