@@ -135,6 +135,48 @@ fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
     GF_FREE(fsc_inode);
 }
 
+void
+fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
+{
+    if( !iatt ){
+        return
+    }
+    fsc_inode->s_prot = iatt->ia_prot;
+    fsc_inode->s_nlink = iatt->ia_nlink;
+    fsc_inode->s_uid = iatt->ia_uid;
+    fsc_inode->s_gid = iatt->ia_gid;
+    fsc_inode->s_atime = iatt->ia_atime;
+    fsc_inode->s_atime_nsec = iatt->ia_atime_nsec;
+    fsc_inode->s_mtime = iatt->ia_mtime;
+    fsc_inode->s_mtime_nsec = iatt->ia_mtime_nsec;
+    fsc_inode->s_ctime = iatt->ia_ctime;
+    fsc_inode->s_ctime_nsec = iatt->ia_ctime_nsec;
+    fsc_inode->s_rdev = iatt->ia_rdev;
+    fsc_inode->s_size = iatt->ia_size;
+    fsc_inode->s_blocks = iatt->ia_blocks;
+}
+
+void
+fsc_inode_to_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
+{
+    if( !iatt ){
+        return
+    }
+    iatt->ia_prot = fsc_inode->s_prot;
+    iatt->ia_nlink = fsc_inode->s_nlink;
+    iatt->ia_uid = fsc_inode->s_uid;
+    iatt->ia_gid = fsc_inode->s_gid;
+    iatt->ia_atime = fsc_inode->s_atime;
+    iatt->ia_atime_nsec = fsc_inode->s_atime_nsec;
+    iatt->ia_mtime = fsc_inode->s_mtime;
+    iatt->ia_mtime_nsec = fsc_inode->s_mtime_nsec;
+    iatt->ia_ctime = fsc_inode->s_ctime;
+    iatt->ia_ctime_nsec = fsc_inode->s_ctime_nsec;
+    iatt->ia_rdev = fsc_inode->s_rdev;
+    iatt->ia_size = fsc_inode->s_size;
+    iatt->ia_blocks = fsc_inode->s_block;
+}
+
 int32_t
 fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
 {
@@ -178,10 +220,7 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     fsc_inode_lock(fsc_inode);
     {
         old_ia_size = fsc_inode->ia_size;
-        if (fsc_inode->s_mtime == 0) {
-            fsc_inode->s_mtime = iabuf->ia_mtime;
-            fsc_inode->s_mtime_nsec = iabuf->ia_mtime_nsec;
-        }
+        fsc_inode_from_iatt(fsc_inode, iabuf);
         gettimeofday(&fsc_inode->last_op_time, NULL);
         fsc_inode->ia_size = iabuf->ia_size;
     }
@@ -366,7 +405,7 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
         op_ret = -1;
         goto out;
     }
-    stbuf.ia_size = fsc_inode->ia_size;
+
     op_ret = sys_pread(fsc_inode->fsc_fd, iobuf->ptr, size, offset);
     if (op_ret == -1) {
         op_errno = errno;
@@ -390,7 +429,7 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
                fsc_inode->local_path, fsc_inode->fsc_fd, offset, size, op_ret,
                op_errno);
     }
-
+    fsc_inode_to_iatt(fsc_inode, &stbuf);
     vec.iov_base = iobuf->ptr;
     vec.iov_len = op_ret;
     iobref = iobref_new();

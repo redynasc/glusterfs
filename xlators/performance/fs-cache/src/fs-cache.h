@@ -44,12 +44,20 @@ struct fsc_inode {
                                   */
     /*meta data of file on server */
     off_t ia_size;       /*file size on server*/
-    time_t s_mtime;      /*
-                          * seconds component of file mtime
-                          */
-    time_t s_mtime_nsec; /*
-                          * nanosecond component of file mtime,may be used in future
-                          */
+
+    ia_prot_t s_prot;
+    uint32_t s_nlink;
+    uint32_t s_uid;
+    uint32_t s_gid;
+    uint32_t s_atime_nsec;
+    uint32_t s_mtime_nsec;
+    uint32_t s_ctime_nsec;
+    int64_t s_atime;
+    int64_t s_mtime;
+    int64_t s_ctime;
+    uint64_t s_rdev;
+    uint64_t s_size;
+    uint64_t s_blocks;
 
     /*meta data of file on local */
     off_t fsc_size; /*now write cache*/
@@ -177,6 +185,10 @@ int32_t
 fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
                fd_t *fd, size_t size, off_t offset, uint32_t flags,
                dict_t *xdata);
+void
+fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt);
+void
+fsc_inode_to_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt);
 
 char *
 fsc_page_aligned_alloc(size_t size, char **aligned_buf);

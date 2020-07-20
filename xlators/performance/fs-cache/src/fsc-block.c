@@ -344,6 +344,16 @@ fsc_block_is_cache(xlator_t *this, fsc_inode_t *inode, off_t offset,
 {
     int32_t idx = 0;
     size_t this_end = offset + size;
+    /*fuse req last block,may be exceed the file real size*/
+    if(inode->ia_size > 0 && offset + size > inode->ia_size){
+        this_end = inode->ia_size;
+        gf_msg(this->name, GF_LOG_DEBUG, errno, FS_CACHE_MSG_DEBUG,
+            "justify fd=%d,path=(%s), offset=%" PRId64
+            ",size=%" GF_PRI_SIZET
+            ",new end=%" GF_PRI_SIZET,
+            inode->fsc_fd, inode->local_path, offset, size, this_end);
+    }
+
     fsc_block_t *cur = NULL;
     fsc_block_t *p = inode->write_block;
     for (idx = 0; idx < inode->write_block_len; ++idx) {
@@ -353,10 +363,10 @@ fsc_block_is_cache(xlator_t *this, fsc_inode_t *inode, off_t offset,
         }
     }
     /*fuse req last block,may be exceed the file realsize*/
-    if (inode->ia_size > 0 && offset + size > inode->ia_size &&
-        inode->fsc_size >= inode->ia_size) {
-        return 0;
-    }
+    // if (inode->ia_size > 0 && offset + size > inode->ia_size &&
+    //     inode->fsc_size >= inode->ia_size) {
+    //     return 0;
+    // }
     return -1;
 }
 
