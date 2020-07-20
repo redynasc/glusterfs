@@ -139,7 +139,7 @@ void
 fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
 {
     if( !iatt ){
-        return
+        return;
     }
     fsc_inode->s_prot = iatt->ia_prot;
     fsc_inode->s_nlink = iatt->ia_nlink;
@@ -160,7 +160,7 @@ void
 fsc_inode_to_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
 {
     if( !iatt ){
-        return
+        return;
     }
     iatt->ia_prot = fsc_inode->s_prot;
     iatt->ia_nlink = fsc_inode->s_nlink;
