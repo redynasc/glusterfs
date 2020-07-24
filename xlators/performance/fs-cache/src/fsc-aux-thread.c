@@ -100,7 +100,7 @@ fsc_clear_idle_node(xlator_t *this)
             list_del_init(&curr->inode_list);
             fsc_inode_destroy(curr, 1);
             del_cnt++;
-            if (del_cnt >= 1000) {
+            if (del_cnt >= 10000) {
                 goto unlock;
             }
         }
