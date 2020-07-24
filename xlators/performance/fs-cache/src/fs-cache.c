@@ -866,9 +866,9 @@ struct volume_options options[] = {
 
     {.key = {"fsc-time-idle-inode"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 600,
+     .min = 60,
      .max = 31536000,
-     .default_value = "3600",
+     .default_value = "600",
      .tags = {"fsc"},
      .description = "inode will be in idle status, when inode is not accessed "
                     "within this time (sec)",

@@ -100,7 +100,7 @@ fsc_clear_idle_node(xlator_t *this)
             list_del_init(&curr->inode_list);
             fsc_inode_destroy(curr, 1);
             del_cnt++;
-            if (del_cnt >= 100) {
+            if (del_cnt >= 1000) {
                 goto unlock;
             }
         }
@@ -126,7 +126,7 @@ fsc_aux_thread_proc(void *data)
     conf = this->private;
 
     interval = 15;
-    clear_interval = 600 / interval;
+    clear_interval = 60 / interval;
 
     glusterfs_this_set(this);
 
