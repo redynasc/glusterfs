@@ -188,6 +188,12 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     if (!this || !inode || !iabuf)
         goto out;
 
+    if (!IA_ISREG(iabuf->ia_type)){
+        gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
+               "ignore not reg file path=%s,ia_type=%d", path, (int)iabuf->ia_type);
+        goto out;
+    }
+
     conf = this->private;
     if (iabuf->ia_size < conf->min_file_size) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
