@@ -28,7 +28,8 @@
  * particular list api
  */
 /* Add new element at the tail of the list. */
-
+#ifndef CDS_LIST_ADD_TAIL_CRU
+#define CDS_LIST_ADD_TAIL_CRU
 static inline
 void cds_list_add_tail_rcu(struct cds_list_head *newp,
                 struct cds_list_head *head)
@@ -38,5 +39,6 @@ void cds_list_add_tail_rcu(struct cds_list_head *newp,
         rcu_assign_pointer(head->prev->next, newp);
         head->prev = newp;
 }
+#endif
 
 #endif
