@@ -999,6 +999,9 @@ struct xlator_fops fops = {
     .readv = fsc_readv,
     .lookup = fsc_lookup,
     .readdirp = fsc_readdirp,
+    .open = fsc_open,
+    .readlink = fsc_readlink,
+    .flush = fsc_flush,
 };
 
 struct xlator_dumpops dumpops = {
