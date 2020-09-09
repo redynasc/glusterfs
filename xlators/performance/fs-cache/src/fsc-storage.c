@@ -21,12 +21,13 @@
 #include <time.h>
 
 int32_t
-fsc_symlink(const char *oldpath, const char *newpath)
+fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath)
 {
     int32_t op_ret = 0;
     op_ret = sys_symlink(oldpath, newpath);
     if (!op_ret && errno == EEXIST) {
-        op_ret = sys_unlink(newpath) if (op_ret != 0)
+        op_ret = sys_unlink(newpath);
+        if (op_ret != 0)
         {
             gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
                    "fsc_symlink delete failed path=(%s)", newpath);
@@ -39,5 +40,5 @@ fsc_symlink(const char *oldpath, const char *newpath)
         gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
                "fsc_symlink failed path=(%s)", newpath);
     }
-    return op_ret
+    return op_ret;
 }

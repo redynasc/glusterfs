@@ -157,9 +157,11 @@ fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag);
 
 void
 fsc_inode_fini(fsc_conf_t *conf);
+
 gf_boolean_t
 fsc_pass_through(fsc_conf_t *conf);
 
+gf_boolean_t
 fsc_inode_is_idle(fsc_inode_t *fsc_inode);
 
 int32_t
@@ -174,7 +176,8 @@ fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode);
 
 int32_t
 fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
-               fd_t *fd, size_t size, dict_t *xdata);
+               fd_t *fd, size_t size, off_t offset, uint32_t flags,
+               dict_t *xdata);
 
 int32_t
 fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
@@ -219,6 +222,6 @@ int
 fsc_spawn_aux_thread(xlator_t *xl);
 
 int
-fsc_symlink(const char *oldpath, const char *newpath);
+fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath);
 
 #endif /* __fsc_H */
