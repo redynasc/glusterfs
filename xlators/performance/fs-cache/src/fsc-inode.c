@@ -45,8 +45,13 @@ fsc_inode_is_idle(fsc_inode_t *fsc_inode)
     return is_idle;
 }
 
+gf_boolean_t
+fsc_inode_is_cache_done(fsc_inode_t *fsc_inode){
+    return (fsc_inode->fsc_size > 0) && (fsc_inode->fsc_size >= fsc_inode->ia_size);
+}
+
 fsc_inode_t *
-fsc_inode_create(xlator_t *this, inode_t *inode, char *path)
+fsc_inode_create(xlator_t *this, ia_type_t ia_type, inode_t *inode, char *path)
 {
     int32_t local_path_len = 0;
     fsc_conf_t *priv = this->private;
@@ -62,7 +67,7 @@ fsc_inode_create(xlator_t *this, inode_t *inode, char *path)
     }
     fsc_inode->conf = priv;
     fsc_inode->inode = inode_ref(inode);
-
+    fsc_inode->ia_type = ia_type;
     if (strncmp(path, "<gfid:", 6) == 0) {
         /*<gfid:c8fca0b4-f94c-490a-9b9b-0e7f9cb7f443>/file*/
         base_str = alloca(strlen(path) + 1);
@@ -141,6 +146,12 @@ fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
     if( !iatt ){
         return;
     }
+    if(fsc_inode->s_mtime <=0){
+        gf_msg(this->name, GF_LOG_WARNING, 0, FS_CACHE_MSG_WARNING,
+           "fsc_inode fsc=%p invalid iatt local_path=(%s)",
+           fsc_inode,fsc_inode->local_path);
+        return;
+    }
     fsc_inode->s_prot = iatt->ia_prot;
     fsc_inode->s_nlink = iatt->ia_nlink;
     fsc_inode->s_uid = iatt->ia_uid;
@@ -152,7 +163,7 @@ fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
     fsc_inode->s_ctime = iatt->ia_ctime;
     fsc_inode->s_ctime_nsec = iatt->ia_ctime_nsec;
     fsc_inode->s_rdev = iatt->ia_rdev;
-    fsc_inode->s_size = iatt->ia_size;
+    fsc_inode->ia_size = iatt->ia_size;
     fsc_inode->s_blocks = iatt->ia_blocks;
 }
 
@@ -173,7 +184,7 @@ fsc_inode_to_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
     iatt->ia_ctime = fsc_inode->s_ctime;
     iatt->ia_ctime_nsec = fsc_inode->s_ctime_nsec;
     iatt->ia_rdev = fsc_inode->s_rdev;
-    iatt->ia_size = fsc_inode->s_size;
+    iatt->ia_size = fsc_inode->ia_size;
     iatt->ia_blocks = fsc_inode->s_blocks;
 }
 
@@ -181,6 +192,7 @@ int32_t
 fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
 {
     off_t old_ia_size = 0;
+    int64_t old_mtime = 0;
     uint64_t tmp_fsc_inode = 0;
     fsc_inode_t *fsc_inode = NULL;
     fsc_conf_t *conf = NULL;
@@ -188,7 +200,8 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     if (!this || !inode || !iabuf)
         goto out;
 
-    if (!IA_ISREG(iabuf->ia_type)){
+    if (!IA_ISREG(iabuf->ia_type) 
+        && !IA_ISLNK(iabuf->ia_type)){
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "ignore not reg file path=%s,ia_type=%d", path, (int)iabuf->ia_type);
         goto out;
@@ -226,9 +239,32 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     fsc_inode_lock(fsc_inode);
     {
         old_ia_size = fsc_inode->ia_size;
+        old_mtime = fsc_inode->s_atime;
         fsc_inode_from_iatt(fsc_inode, iabuf);
         gettimeofday(&fsc_inode->last_op_time, NULL);
-        fsc_inode->ia_size = iabuf->ia_size;
+
+        if (IA_ISREG(iabuf->ia_type) 
+            && old_ia_size!=fsc_inode->ia_size){
+            //invalidate page cache in VFS
+            inode_invalidate(inode);
+            gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                    "fsc_inode fsc=%p inode_invalidate "
+                    "local_path=(%s),,gfid=(%s)",
+                    fsc_inode, fsc_inode->local_path, uuid_utoa(inode->gfid));
+        }
+        if(IA_ISLNK(iabuf->ia_type) 
+            && old_mtime != 0 
+            && old_mtime != fsc_inode->s_atime){
+            if(fsc_inode->link_target){
+                gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
+                    "fsc_inode fsc=%p invalidate link_target mtime from %" PRId64 " to %" PRIu64
+                    "local_path=(%s),link_target=(%s)",
+                    fsc_inode, old_mtime, fsc_inode->s_atime,
+                    fsc_inode->local_path, fsc_inode->link_target);
+                FREE(fsc_inode->link_target)
+                fsc_inode->link_target = NULL;
+            }
+        }
     }
     fsc_inode_unlock(fsc_inode);
 
@@ -474,4 +510,91 @@ fsc_page_aligned_alloc(size_t size, char **aligned_buf)
     *aligned_buf = buf;
 out:
     return alloc_buf;
+}
+
+
+int32_t
+fsc_inode_update_symlink(fsc_inode_t *fsc_inode, xlator_t *this, const char *link, struct iatt *sbuf,
+                dict_t *xdata)
+{
+    int64_t old_mtime = 0;
+    if(!fsc_inode->link_target){
+        return -1;
+    }
+
+    fsc_inode_lock(fsc_inode);
+    if (!fsc_inode->link_target){
+        fsc_inode->link_target = strdup(link);
+        link = strdup(fsc_inode->link_target);
+        fsc_inode_from_iatt(fsc_inode, sbuf);
+        fsc_symlink(fsc_inode->link_target, fsc_inode->local_path);
+        gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                "fsc_inode fsc=%p update1 link_target "
+                "local_path=(%s),old_target=(%s),link_target=(%s)",
+                fsc_inode, fsc_inode->local_path, fsc_inode->link_target, link);
+    }else{
+        old_mtime = fsc_inode->s_mtime;
+        fsc_inode_from_iatt(fsc_inode, sbuf);
+        if( fsc_inode->s_mtime != old_mtime){
+             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                "fsc_inode fsc=%p update2 link_target mtime from %" PRId64 " to %" PRIu64
+                "local_path=(%s),old_target=(%s),link_target=(%s)",
+                fsc_inode, old_mtime, fsc_inode->s_atime,
+                fsc_inode->local_path, fsc_inode->link_target, link);
+            FREE(fsc_inode->link_target)
+            fsc_inode->link_target = strdup(link);
+            fsc_symlink(fsc_inode->link_target, fsc_inode->local_path);
+        }
+    }
+    fsc_inode_unlock(fsc_inode);
+    return 0;
+}
+
+int32_t
+fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
+               size_t size, dict_t *xdata)
+{
+    ssize_t op_ret = 0
+    char * link = NULL;
+    char link_target[256]={0};
+    struct iatt stbuf = {
+        0,
+    };
+
+    fsc_inode_lock(fsc_inode);
+    if (fsc_inode->link_target){
+        link = strdup(fsc_inode->link_target);
+        if (){
+
+        }
+    }
+    fsc_inode_unlock(fsc_inode);
+
+
+    if(link){
+        fsc_inode_to_iatt(fsc_inode, &stbuf);
+        STACK_UNWIND_STRICT(readlink, frame, strlen(link), 0, link, &stbuf, NULL);
+        FREE(link);
+        return op_ret;
+    }
+
+    op_ret = sys_readlink(fsc_inode->local_path, link_target, 255)
+    if (op_ret == -1) {
+        gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
+               "fsc_inode sys_readlink  not find path=(%s),gfid=(%s)",
+               fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
+        goto out;
+    }
+
+    fsc_inode_lock(fsc_inode);
+    fsc_inode->link_target = strdup(link_target);
+    fsc_inode_unlock(fsc_inode);
+    gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
+           "fsc_inode eadlink local success path=(%s),link_target=(%s)",
+           fsc_inode->local_path, fsc_inode->link_target);
+
+    fsc_inode_to_iatt(fsc_inode, &stbuf);
+    STACK_UNWIND_STRICT(readlink, frame, op_ret, 0, link_target, &stbuf, NULL);
+out:
+    return op_ret;
 }

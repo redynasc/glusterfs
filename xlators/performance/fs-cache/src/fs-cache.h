@@ -43,9 +43,9 @@ struct fsc_inode {
                                   * io-cache translator
                                   */
     /*meta data of file on server */
-    off_t ia_size;       /*file size on server*/
-
+    ia_type_t ia_type;
     ia_prot_t s_prot;
+    off_t ia_size;       /*file size on server*/
     uint32_t s_nlink;
     uint32_t s_uid;
     uint32_t s_gid;
@@ -56,17 +56,21 @@ struct fsc_inode {
     int64_t s_mtime;
     int64_t s_ctime;
     uint64_t s_rdev;
-    uint64_t s_size;
     uint64_t s_blocks;
 
+    pthread_mutex_t inode_lock;
+    uint16_t open_mode; //0: init,1:local_open
     /*meta data of file on local */
-    off_t fsc_size; /*now write cache*/
-    int fsc_fd;
-    struct fsc_block *write_block;
+    off_t fsc_size; /*now write size in local disk*/
+    int fsc_fd;     /*open fd in local*/
+
+    struct fsc_block *write_block; /*has cached content block in local disk*/
     int32_t write_block_len;
+
     struct timeval last_op_time;
     char *local_path;
-    pthread_mutex_t inode_lock;
+    char *link_target;  /* targer file in symlink*/
+    
     inode_t *inode;
     struct fsc_conf *conf;
 };
@@ -82,22 +86,10 @@ struct fsc_local {
     loc_t file_loc;
     off_t offset;
     size_t size;
-    int32_t op_ret;
-    int32_t op_errno;
-    off_t pending_offset; /*
-                           * offset from this frame should
-                           * continue
-                           */
-    size_t pending_size;  /*
-                           * size of data this frame is waiting
-                           * on
-                           */
+
     struct fsc_inode *inode;
     fd_t *fd;
-    struct iovec *vector;
-    struct iobref *iobref;
-    int32_t need_xattr;
-    dict_t *xattr_req;
+
 };
 
 struct fsc_conf {
@@ -167,8 +159,10 @@ fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag);
 
 void
 fsc_inode_fini(fsc_conf_t *conf);
+gf_boolean_t 
+fsc_pass_through(fsc_conf_t *conf);
 
-gf_boolean_t
+
 fsc_inode_is_idle(fsc_inode_t *fsc_inode);
 
 int32_t
@@ -183,12 +177,25 @@ fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode);
 
 int32_t
 fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
-               fd_t *fd, size_t size, off_t offset, uint32_t flags,
-               dict_t *xdata);
+               fd_t *fd, size_t size, dict_t *xdata);
+
+int32_t
+fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
+               size_t size, dict_t *xdata);
+
+int32_t
+fsc_inode_update_symlink(fsc_inode_t *fsc_inode, xlator_t *this, const char *link, struct iatt *sbuf,
+                dict_t *xdata);
+
 void
 fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt);
+
 void
 fsc_inode_to_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt);
+
+gf_boolean_t
+fsc_inode_is_cache_done(fsc_inode_t *inode);
+
 
 char *
 fsc_page_aligned_alloc(size_t size, char **aligned_buf);
@@ -214,5 +221,8 @@ fsc_check_filter(fsc_conf_t *conf, const char *path);
 
 int
 fsc_spawn_aux_thread(xlator_t *xl);
+
+int
+fsc_symlink(const char *oldpath, const char *newpath){
 
 #endif /* __fsc_H */
