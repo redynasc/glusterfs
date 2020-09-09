@@ -29,7 +29,6 @@ struct fsc_conf;
 struct fsc_inode;
 struct fsc_block;
 
-
 #define FSC_CACHE_VERSION "v0.0.1"
 
 #define FSC_CACHE_PATTERN_LEN 128
@@ -45,7 +44,7 @@ struct fsc_inode {
     /*meta data of file on server */
     ia_type_t ia_type;
     ia_prot_t s_prot;
-    off_t ia_size;       /*file size on server*/
+    off_t ia_size; /*file size on server*/
     uint32_t s_nlink;
     uint32_t s_uid;
     uint32_t s_gid;
@@ -59,7 +58,7 @@ struct fsc_inode {
     uint64_t s_blocks;
 
     pthread_mutex_t inode_lock;
-    uint16_t open_mode; //0: init,1:local_open
+    uint16_t open_mode;  // 0: init,1:local_open
     /*meta data of file on local */
     off_t fsc_size; /*now write size in local disk*/
     int fsc_fd;     /*open fd in local*/
@@ -69,8 +68,8 @@ struct fsc_inode {
 
     struct timeval last_op_time;
     char *local_path;
-    char *link_target;  /* targer file in symlink*/
-    
+    char *link_target; /* targer file in symlink*/
+
     inode_t *inode;
     struct fsc_conf *conf;
 };
@@ -89,7 +88,6 @@ struct fsc_local {
 
     struct fsc_inode *inode;
     fd_t *fd;
-
 };
 
 struct fsc_conf {
@@ -159,9 +157,8 @@ fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag);
 
 void
 fsc_inode_fini(fsc_conf_t *conf);
-gf_boolean_t 
+gf_boolean_t
 fsc_pass_through(fsc_conf_t *conf);
-
 
 fsc_inode_is_idle(fsc_inode_t *fsc_inode);
 
@@ -181,11 +178,11 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
 
 int32_t
 fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
-               size_t size, dict_t *xdata);
+                    size_t size, dict_t *xdata);
 
 int32_t
-fsc_inode_update_symlink(fsc_inode_t *fsc_inode, xlator_t *this, const char *link, struct iatt *sbuf,
-                dict_t *xdata);
+fsc_inode_update_symlink(fsc_inode_t *fsc_inode, xlator_t *this,
+                         const char *link, struct iatt *sbuf, dict_t *xdata);
 
 void
 fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt);
@@ -195,7 +192,6 @@ fsc_inode_to_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt);
 
 gf_boolean_t
 fsc_inode_is_cache_done(fsc_inode_t *inode);
-
 
 char *
 fsc_page_aligned_alloc(size_t size, char **aligned_buf);
@@ -223,6 +219,6 @@ int
 fsc_spawn_aux_thread(xlator_t *xl);
 
 int
-fsc_symlink(const char *oldpath, const char *newpath){
+fsc_symlink(const char *oldpath, const char *newpath);
 
 #endif /* __fsc_H */

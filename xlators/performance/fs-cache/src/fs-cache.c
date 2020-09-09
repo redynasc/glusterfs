@@ -22,9 +22,9 @@
 #include <glusterfs/locking.h>
 #include <glusterfs/timespec.h>
 
-
-gf_boolean_t 
-fsc_pass_through(fsc_conf_t *conf){
+gf_boolean_t
+fsc_pass_through(fsc_conf_t *conf)
+{
     if (!conf->is_enable) {
         return _gf_true;
     }
@@ -412,14 +412,15 @@ fsc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     open_mode = fsc_inode->open_mode;
     fsc_inode_unlock(fsc_inode);
 
-    if ( open_mode == 1 ){
-        //when server content changed
+    if (open_mode == 1) {
+        // when server content changed
         wind_fd = fd_anonymous(fd->inode);
     }
 
     gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_DEBUG,
            "NEW REQ (%p) offset "
-           "= %" PRId64 " && size = %" GF_PRI_SIZET ""
+           "= %" PRId64 " && size = %" GF_PRI_SIZET
+           ""
            " anonymous=%d",
            frame, offset, size, open_mode);
 
@@ -435,8 +436,8 @@ out:
 
 int
 fsc_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                int op_errno, const char *link, struct iatt *sbuf,
-                dict_t *xdata)
+                 int op_errno, const char *link, struct iatt *sbuf,
+                 dict_t *xdata)
 {
     int32_t ret = -1;
     int32_t retval = -1;
@@ -462,7 +463,7 @@ fsc_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     fsc_inode = local->inode;
     GF_ASSERT(fsc_inode);
 
-    if (op_ret > 0){
+    if (op_ret > 0) {
         fsc_inode_update_symlink(fsc_inode, this, link, sbuf);
     }
 
@@ -493,7 +494,7 @@ fsc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     }
 
     if (fsc_pass_through(conf)) {
-         goto wind;
+        goto wind;
     }
 
     inode_ctx_get(loc->inode, this, &tmp_fsc_inode);
@@ -526,8 +527,8 @@ fsc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     return 0;
 
 wind:
-    STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-            FIRST_CHILD(this)->fops->readlink, loc, size, xdata);
+    STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->readlink,
+                    loc, size, xdata);
     return 0;
 err:
     STACK_UNWIND_STRICT(readlink, frame, -1, op_errno, null, NULL, NULL);
@@ -536,7 +537,7 @@ err:
 
 int
 fsc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
-        dict_t *xdata)
+         dict_t *xdata)
 {
     uint64_t tmp_fsc_inode = 0;
     fsc_inode_t *fsc_inode = NULL;
@@ -565,12 +566,12 @@ fsc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
                uuid_utoa(fd->inode->gfid));
         goto wind;
     }
-    //try open from the local 
+    // try open from the local
     fsc_inode_lock(fsc_inode);
     {
-        op_ret = fsc_inode_open_for_read(this, fsc_inode)
-        if (op_ret >= 0) {
-            if (fsc_inode_is_cache_done(fsc_inode)){
+        op_ret = fsc_inode_open_for_read(this, fsc_inode) if (op_ret >= 0)
+        {
+            if (fsc_inode_is_cache_done(fsc_inode)) {
                 fsc_inode->open_mode = 1;
                 cache_ok = _gf_true;
             }
@@ -578,23 +579,22 @@ fsc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
     }
     fsc_inode_unlock(fsc_inode);
 
-    if(cache_ok){
+    if (cache_ok) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_INFO,
-           "fsc_cache open local success,path=(%s),gfid=(%s)",
-           fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
+               "fsc_cache open local success,path=(%s),gfid=(%s)",
+               fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
         STACK_UNWIND_STRICT(open, frame, op_ret, 0, fd, xdata);
         return 0;
     }
-    
+
 wind:
-    STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-            FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
+    STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
+                    loc, flags, fd, xdata);
     return 0;
 err:
     STACK_UNWIND_STRICT(open, frame, op_ret, op_errno, fd, xdata);
     return 0;
 }
-
 
 int32_t
 fsc_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
@@ -629,17 +629,17 @@ fsc_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     fsc_inode_lock(fsc_inode);
     open_mode = fsc_inode->open_mode;
     fsc_inode_unlock(fsc_inode);
-    if( open_mode == 1){
+    if (open_mode == 1) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_INFO,
-           "fsc_cache flush local success,path=(%s),gfid=(%s)",
-           fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
+               "fsc_cache flush local success,path=(%s),gfid=(%s)",
+               fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
         STACK_UNWIND_STRICT(flush, frame, 0, 0, fd, NULL);
         return 0;
     }
-    
+
 wind:
-    STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                        FIRST_CHILD(this)->fops->flush, fd, xdata);
+    STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->flush,
+                    fd, xdata);
     return 0;
 
 err:

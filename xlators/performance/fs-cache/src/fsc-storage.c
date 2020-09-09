@@ -20,26 +20,24 @@
 #include <sys/time.h>
 #include <time.h>
 
-int
-fsc_symlink(const char *oldpath, const char *newpath){
-    int  op_ret = 0;
+int32_t
+fsc_symlink(const char *oldpath, const char *newpath)
+{
+    int32_t op_ret = 0;
     op_ret = sys_symlink(oldpath, newpath);
     if (!op_ret && errno == EEXIST) {
-        op_ret = sys_unlink(newpath)
-        if (op_ret != 0){
+        op_ret = sys_unlink(newpath) if (op_ret != 0)
+        {
             gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-                   "fsc_symlink delete failed path=(%s)",
-                   newpath);
-          return op_ret;
+                   "fsc_symlink delete failed path=(%s)", newpath);
+            return op_ret;
         }
         op_ret = sys_symlink(oldpath, newpath);
     }
 
-    if (op_ret != 0){
+    if (op_ret != 0) {
         gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-               "fsc_symlink failed path=(%s)",
-               newpath);
+               "fsc_symlink failed path=(%s)", newpath);
     }
     return op_ret
 }
-
