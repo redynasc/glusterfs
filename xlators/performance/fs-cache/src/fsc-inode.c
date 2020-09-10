@@ -48,8 +48,9 @@ fsc_inode_is_idle(fsc_inode_t *fsc_inode)
 gf_boolean_t
 fsc_inode_is_cache_done(fsc_inode_t *fsc_inode)
 {
-    return (fsc_inode->fsc_size > 0) &&
-           (fsc_inode->fsc_size >= fsc_inode->ia_size);
+    return fsc_inode->fsc_size > 0;
+    // return (fsc_inode->fsc_size > 0) &&
+    //        (fsc_inode->fsc_size >= fsc_inode->ia_size);
 }
 
 fsc_inode_t *
@@ -157,6 +158,14 @@ fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
                 fsc_inode, fsc_inode->local_path,
                 iatt.ia_size,iatt.s_mtime,iatt.s_mtime_nsec);
         return;
+    }else{
+        gf_msg("fs-cache", GF_LOG_WARNING, 0, FS_CACHE_MSG_WARNING,
+               "fsc_inode fsc=%p from_iatt local_path=(%s) "
+               "ia_size=" PRId64
+               ",s_mtime=%d"
+               ",s_mtime_nsec=" PRId64
+                fsc_inode, fsc_inode->local_path,
+                iatt.ia_size,iatt.s_mtime,iatt.s_mtime_nsec);
     }
     fsc_inode->s_prot = iatt->ia_prot;
     fsc_inode->s_nlink = iatt->ia_nlink;
