@@ -226,6 +226,6 @@ fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath,
             struct iatt *sbuf);
 
 int32_t
-fsc_resovle_dir(xlator_t *this, char *file_full_path);
+fsc_resovle_dir(xlator_t *this, const char *file_full_path);
 
 #endif /* __fsc_H */

@@ -70,7 +70,7 @@ fsc_set_timestamp(const char *file, struct iatt *sbuf)
 }
 
 int32_t
-fsc_resovle_dir(xlator_t *this, char *file_full_path)
+fsc_resovle_dir(xlator_t *this, const char *file_full_path)
 {
     char tmp[512];
     char *p = NULL;
@@ -115,7 +115,8 @@ fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath,
             }
             op_ret = sys_symlink(oldpath, newpath);
         } else if (errno == ENOENT) {
-            fsc_resovle_dir() op_ret = sys_symlink(oldpath, newpath);
+            fsc_resovle_dir(this, newpath);
+            op_ret = sys_symlink(oldpath, newpath);
         }
     }
 
