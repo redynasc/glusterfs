@@ -149,24 +149,22 @@ fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
     if (!iatt) {
         return;
     }
-    if (iatt->s_mtime <= 0) {
+
+    if (iatt->ia_mtime <= 0) {
         gf_msg("fs-cache", GF_LOG_WARNING, 0, FS_CACHE_MSG_WARNING,
                "fsc_inode fsc=%p invalid iatt local_path=(%s) "
-               "ia_size=" PRId64
-               ",s_mtime=%d"
-               ",s_mtime_nsec=" PRId64
-                fsc_inode, fsc_inode->local_path,
-                iatt.ia_size,iatt.s_mtime,iatt.s_mtime_nsec);
+               "ia_size=%" PRId64 ",s_mtime=%" PRId64 ",s_mtime_nsec=%d",
+               fsc_inode, fsc_inode->local_path, iatt->ia_size, iatt->ia_mtime,
+               iatt->ia_mtime_nsec);
         return;
-    }else{
-        gf_msg("fs-cache", GF_LOG_WARNING, 0, FS_CACHE_MSG_WARNING,
+    } else {
+        gf_msg("fs-cache", GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_inode fsc=%p from_iatt local_path=(%s) "
-               "ia_size=" PRId64
-               ",s_mtime=%d"
-               ",s_mtime_nsec=" PRId64
-                fsc_inode, fsc_inode->local_path,
-                iatt.ia_size,iatt.s_mtime,iatt.s_mtime_nsec);
+               "ia_size=%" PRId64 ",s_mtime=%" PRId64 ",s_mtime_nsec=%d",
+               fsc_inode, fsc_inode->local_path, iatt->ia_size, iatt->ia_mtime,
+               iatt->ia_mtime_nsec);
     }
+
     fsc_inode->s_prot = iatt->ia_prot;
     fsc_inode->s_nlink = iatt->ia_nlink;
     fsc_inode->s_uid = iatt->ia_uid;
@@ -531,14 +529,14 @@ fsc_inode_update_symlink(fsc_inode_t *fsc_inode, xlator_t *this,
                          const char *link, struct iatt *sbuf, dict_t *xdata)
 {
     int64_t old_mtime = 0;
-    if(!link){
+    if (!link) {
         return -1;
     }
     fsc_inode_lock(fsc_inode);
     if (!fsc_inode->link_target) {
         fsc_inode->link_target = gf_strdup(link);
         fsc_inode_from_iatt(fsc_inode, sbuf);
-        fsc_symlink(this, fsc_inode->link_target, fsc_inode->local_path);
+        fsc_symlink(this, fsc_inode->link_target, fsc_inode->local_path, sbuf);
 
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                "fsc_inode fsc=%p update1 link_target "
@@ -556,7 +554,8 @@ fsc_inode_update_symlink(fsc_inode_t *fsc_inode, xlator_t *this,
                    fsc_inode->local_path, fsc_inode->link_target, link);
             GF_FREE(fsc_inode->link_target);
             fsc_inode->link_target = gf_strdup(link);
-            fsc_symlink(this, fsc_inode->link_target, fsc_inode->local_path);
+            fsc_symlink(this, fsc_inode->link_target, fsc_inode->local_path,
+                        sbuf);
         }
     }
     fsc_inode_unlock(fsc_inode);
@@ -573,6 +572,10 @@ fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     struct iatt stbuf = {
         0,
     };
+    struct stat local_statbuf = {
+        0,
+    };
+    int64_t local_mtime = 0;
 
     fsc_inode_lock(fsc_inode);
     if (fsc_inode->link_target) {
@@ -581,24 +584,43 @@ fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     fsc_inode_unlock(fsc_inode);
 
     if (link) {
+        gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
+               "fsc_inode readlink local1 success path=(%s),link_target=(%s)",
+               fsc_inode->local_path, link);
+
         fsc_inode_to_iatt(fsc_inode, &stbuf);
         STACK_UNWIND_STRICT(readlink, frame, strlen(link), 0, link, &stbuf,
                             NULL);
         GF_FREE(link);
-        gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
-           "fsc_inode readlink local1 success path=(%s),link_target=(%s)",
-           fsc_inode->local_path, fsc_inode->link_target);
-        return op_ret;
+        return 0;
     }
 
     /*try read from local*/
-    op_ret = sys_readlink(fsc_inode->local_path, link_target, 255);
-    if (op_ret == -1)
-    {
+    op_ret = sys_lstat(fsc_inode->local_path, &local_statbuf);
+    if (op_ret == -1) {
         gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
                "fsc_inode sys_readlink  not find path=(%s),gfid=(%s)",
                fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
-        goto out;
+        return -1;
+    }
+
+    // check mtime
+    local_mtime = local_statbuf.st_mtime;
+    if (fsc_inode->s_mtime > 0 && local_mtime != fsc_inode->s_mtime) {
+        gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
+               "fsc_inode readlink  old lmtime=%" PRId64 " smtime=%" PRId64
+               " path=(%s),gfid=(%s)",
+               local_mtime, fsc_inode->s_mtime, fsc_inode->local_path,
+               uuid_utoa(fsc_inode->inode->gfid));
+        return -1;
+    }
+
+    op_ret = sys_readlink(fsc_inode->local_path, link_target, 255);
+    if (op_ret == -1) {
+        gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
+               "fsc_inode readlink  not find path=(%s),gfid=(%s)",
+               fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
+        return -1;
     }
 
     fsc_inode_lock(fsc_inode);
@@ -609,7 +631,6 @@ fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
            fsc_inode->local_path, fsc_inode->link_target);
 
     fsc_inode_to_iatt(fsc_inode, &stbuf);
-    STACK_UNWIND_STRICT(readlink, frame, op_ret, 0, link_target, &stbuf, NULL);   
-out:
-    return op_ret;
+    STACK_UNWIND_STRICT(readlink, frame, op_ret, 0, link_target, &stbuf, NULL);
+    return 0;
 }

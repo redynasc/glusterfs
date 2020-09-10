@@ -21,14 +21,63 @@
 #include <time.h>
 
 int32_t
-fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath)
+fsc_set_timestamp(const char *file, struct iatt *sbuf)
+{
+    struct stat sb = {
+        0,
+    };
+    iatt_to_stat(sbuf, &sb);
+#if defined(HAVE_UTIMENSAT)
+        struct timespec new_time[2] = {{
+                                           0,
+                                       },
+                                       {
+                                           0,
+                                       }};
+#else
+        struct timeval new_time[2] = {{
+                                          0,
+                                      },
+                                      {
+                                          0,
+                                      }};
+#endif
+    int ret = 0;
+
+    /* The granularity is nano seconds if `utimensat()` is available,
+     * and micro seconds otherwise.
+     */
+#if defined(HAVE_UTIMENSAT)
+    new_time[0].tv_sec = sb.st_atime;
+    new_time[0].tv_nsec = ST_ATIM_NSEC(&sb);
+
+    new_time[1].tv_sec = sb.st_mtime;
+    new_time[1].tv_nsec = ST_MTIM_NSEC(&sb);
+
+    /* dirfd = 0 is ignored because `dest` is an absolute path. */
+    ret = sys_utimensat(AT_FDCWD, file, new_time, AT_SYMLINK_NOFOLLOW);
+
+#else
+    new_time[0].tv_sec = sb.st_atime;
+    new_time[0].tv_usec = ST_ATIM_NSEC(&sb) / 1000;
+
+    new_time[1].tv_sec = sb.st_mtime;
+    new_time[1].tv_usec = ST_MTIM_NSEC(&sb) / 1000;
+
+    ret = sys_utimes(file, new_time);
+#endif
+    return ret;
+}
+
+int32_t
+fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath,
+            struct iatt *sbuf)
 {
     int32_t op_ret = 0;
     op_ret = sys_symlink(oldpath, newpath);
-    if (!op_ret && errno == EEXIST) {
+    if (op_ret != 0 && errno == EEXIST) {
         op_ret = sys_unlink(newpath);
-        if (op_ret != 0)
-        {
+        if (op_ret != 0) {
             gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
                    "fsc_symlink delete failed path=(%s)", newpath);
             return op_ret;
@@ -36,7 +85,15 @@ fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath)
         op_ret = sys_symlink(oldpath, newpath);
     }
 
-    if (op_ret != 0) {
+    if (op_ret == 0) {
+        if (sbuf->ia_mtime > 0) {
+            op_ret = fsc_set_timestamp(newpath, sbuf);
+            if (op_ret != 0) {
+                gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
+                       "utimes on %s", newpath);
+            }
+        }
+    } else {
         gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
                "fsc_symlink failed path=(%s)", newpath);
     }

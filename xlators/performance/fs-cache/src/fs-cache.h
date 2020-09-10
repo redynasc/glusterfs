@@ -222,6 +222,7 @@ int
 fsc_spawn_aux_thread(xlator_t *xl);
 
 int
-fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath);
+fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath,
+            struct iatt *sbuf);
 
 #endif /* __fsc_H */
