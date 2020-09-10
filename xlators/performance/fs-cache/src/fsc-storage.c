@@ -28,19 +28,19 @@ fsc_set_timestamp(const char *file, struct iatt *sbuf)
     };
     iatt_to_stat(sbuf, &sb);
 #if defined(HAVE_UTIMENSAT)
-        struct timespec new_time[2] = {{
-                                           0,
-                                       },
-                                       {
-                                           0,
-                                       }};
+    struct timespec new_time[2] = {{
+                                       0,
+                                   },
+                                   {
+                                       0,
+                                   }};
 #else
-        struct timeval new_time[2] = {{
-                                          0,
-                                      },
-                                      {
-                                          0,
-                                      }};
+    struct timeval new_time[2] = {{
+                                      0,
+                                  },
+                                  {
+                                      0,
+                                  }};
 #endif
     int ret = 0;
 
@@ -70,19 +70,53 @@ fsc_set_timestamp(const char *file, struct iatt *sbuf)
 }
 
 int32_t
+fsc_resovle_dir(xlator_t *this, char *file_full_path)
+{
+    char tmp[512];
+    char *p = NULL;
+    size_t len;
+    size_t base_len;
+    fsc_conf_t *priv = this->private;
+
+    snprintf(tmp, sizeof(tmp), "%s", file_full_path);
+    len = strlen(tmp);
+    base_len = strlen(priv->cache_dir);
+    if (base_len >= len) {
+        return -1;
+    }
+
+    if (tmp[len - 1] == '/')
+        tmp[len - 1] = 0;
+
+    for (p = tmp + base_len + 1; *p; p++) {
+        if (*p == '/') {
+            *p = 0;
+            sys_mkdir(tmp, 0755);
+            *p = '/';
+        }
+    }
+    /*mkdir(tmp, 0755);*/
+    return 0;
+}
+
+int32_t
 fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath,
             struct iatt *sbuf)
 {
     int32_t op_ret = 0;
     op_ret = sys_symlink(oldpath, newpath);
-    if (op_ret != 0 && errno == EEXIST) {
-        op_ret = sys_unlink(newpath);
-        if (op_ret != 0) {
-            gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
-                   "fsc_symlink delete failed path=(%s)", newpath);
-            return op_ret;
+    if (op_ret != 0) {
+        if (errno == EEXIST) {
+            op_ret = sys_unlink(newpath);
+            if (op_ret != 0) {
+                gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,
+                       "fsc_symlink delete failed path=(%s)", newpath);
+                return op_ret;
+            }
+            op_ret = sys_symlink(oldpath, newpath);
+        } else if (errno == ENOENT) {
+            fsc_resovle_dir() op_ret = sys_symlink(oldpath, newpath);
         }
-        op_ret = sys_symlink(oldpath, newpath);
     }
 
     if (op_ret == 0) {

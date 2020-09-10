@@ -256,13 +256,15 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
         fsc_inode_from_iatt(fsc_inode, iabuf);
         gettimeofday(&fsc_inode->last_op_time, NULL);
 
-        if (IA_ISREG(iabuf->ia_type) && old_ia_size != fsc_inode->ia_size) {
+        if (IA_ISREG(iabuf->ia_type) && old_ia_size > 0 &&
+            old_ia_size != fsc_inode->ia_size) {
             // invalidate page cache in VFS
             inode_invalidate(inode);
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-                   "fsc_inode fsc=%p inode_invalidate "
-                   "local_path=(%s),,gfid=(%s)",
-                   fsc_inode, fsc_inode->local_path, uuid_utoa(inode->gfid));
+                   "fsc_inode fsc=%p inode_invalidate ia_size from %" PRId64
+                   " to %" PRIu64 ",local_path=(%s),gfid=(%s)",
+                   fsc_inode, old_ia_size, fsc_inode->ia_size,
+                   fsc_inode->local_path, uuid_utoa(inode->gfid));
         }
         if (IA_ISLNK(iabuf->ia_type) && old_mtime != 0 &&
             old_mtime != fsc_inode->s_atime) {
@@ -338,36 +340,6 @@ out:
 }
 
 int32_t
-fsc_inode_resovle_dir(xlator_t *this, char *file_full_path)
-{
-    char tmp[512];
-    char *p = NULL;
-    size_t len;
-    size_t base_len;
-    fsc_conf_t *priv = this->private;
-
-    snprintf(tmp, sizeof(tmp), "%s", file_full_path);
-    len = strlen(tmp);
-    base_len = strlen(priv->cache_dir);
-    if (base_len >= len) {
-        return -1;
-    }
-
-    if (tmp[len - 1] == '/')
-        tmp[len - 1] = 0;
-
-    for (p = tmp + base_len + 1; *p; p++) {
-        if (*p == '/') {
-            *p = 0;
-            mkdir(tmp, 0755);
-            *p = '/';
-        }
-    }
-    /*mkdir(tmp, 0755);*/
-    return 0;
-}
-
-int32_t
 fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode)
 {
     int32_t op_ret = -1;
@@ -385,10 +357,16 @@ fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode)
     if (conf->direct_io_write == 1) {
         flag |= O_DIRECT;
     }
-    fsc_inode_resovle_dir(this, fsc_inode->local_path);
 
     fsc_inode->fsc_fd = sys_open(fsc_inode->local_path, flag,
                                  S_IRWXU | S_IRWXG | S_IRWXO);
+    if (fsc_inode->fsc_fd == -1 && errno == ENOENT) {
+        fsc_resovle_dir(this, fsc_inode->local_path);
+        // try again
+        fsc_inode->fsc_fd = sys_open(fsc_inode->local_path, flag,
+                                     S_IRWXU | S_IRWXG | S_IRWXO);
+    }
+
     if (fsc_inode->fsc_fd == -1) {
         op_ret = -1;
         gf_msg(this->name, GF_LOG_ERROR, errno, FS_CACHE_MSG_ERROR,

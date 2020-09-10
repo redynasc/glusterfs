@@ -218,11 +218,14 @@ fsc_block_flush(xlator_t *this, fsc_inode_t *inode);
 gf_boolean_t
 fsc_check_filter(fsc_conf_t *conf, const char *path);
 
-int
+int32_t
 fsc_spawn_aux_thread(xlator_t *xl);
 
-int
+int32_t
 fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath,
             struct iatt *sbuf);
+
+int32_t
+fsc_resovle_dir(xlator_t *this, char *file_full_path);
 
 #endif /* __fsc_H */
