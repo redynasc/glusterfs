@@ -184,12 +184,12 @@ fsc_inode_invalidate(xlator_t *this, fsc_inode_t *fsc_inode, off_t old_ia_size)
 {
     inode_invalidate(fsc_inode->inode);
     fsc_inode->fsc_size = 0;
-    fsc_block_reset(fsc_inode);
+    fsc_block_reset(this, fsc_inode);
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fsc_inode fsc=%p inode_invalidate ia_size from %" PRId64
            " to %" PRIu64 ",local_path=(%s),gfid=(%s)",
            fsc_inode, old_ia_size, fsc_inode->s_iatt.ia_size,
-           fsc_inode->local_path, uuid_utoa(inode->gfid));
+           fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
 }
 
 int32_t

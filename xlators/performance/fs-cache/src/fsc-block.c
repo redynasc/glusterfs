@@ -370,6 +370,7 @@ fsc_block_is_cache(xlator_t *this, fsc_inode_t *inode, off_t offset,
 int32_t
 fsc_block_reset(xlator_t *this, fsc_inode_t *inode)
 {
+    int32_t idx = 0;
     if (!inode->write_block) {
         return -1;
     }
