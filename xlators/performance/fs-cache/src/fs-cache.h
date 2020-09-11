@@ -103,6 +103,8 @@ struct fsc_conf {
     gf_boolean_t aux_thread_active;
     pthread_mutex_t aux_lock;
 
+    struct mem_pool *fsc_inode_mem_pool;
+
     xlator_t *this;
 };
 

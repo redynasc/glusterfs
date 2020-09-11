@@ -64,7 +64,8 @@ fsc_inode_create(xlator_t *this, inode_t *inode, char *path)
     char *base_cur = NULL;
     char *tmp = NULL;
     char tmm_val = 0;
-    fsc_inode = GF_CALLOC(1, sizeof(fsc_inode_t), gf_fsc_mt_fsc_inode_t);
+    // fsc_inode = GF_CALLOC(1, sizeof(fsc_inode_t), gf_fsc_mt_fsc_inode_t);
+    fsc_inode = mem_get0(priv->fsc_inode_mem_pool);
     if (fsc_inode == NULL) {
         goto out;
     }
@@ -140,7 +141,8 @@ fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
     GF_FREE(fsc_inode->link_target);
     GF_FREE(fsc_inode->write_block);
     pthread_mutex_destroy(&fsc_inode->inode_lock);
-    GF_FREE(fsc_inode);
+    // GF_FREE(fsc_inode);
+    mem_put(fsc_inode);
 }
 
 void

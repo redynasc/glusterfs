@@ -22,6 +22,10 @@
 #include <glusterfs/locking.h>
 #include <glusterfs/timespec.h>
 
+#if defined(GF_DISABLE_MEMPOOL)
+#pragma  message("NOTE:  MEMPOOL is disabled")
+#endif
+
 gf_boolean_t
 fsc_pass_through(fsc_conf_t *conf)
 {
@@ -967,6 +971,15 @@ init(xlator_t *this)
         goto out;
     }
 
+    conf->fsc_inode_mem_pool = mem_pool_new(fsc_inode_t, 1024);
+    if (!conf->fsc_inode_mem_pool) {
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, FS_CACHE_MSG_ERROR,
+               "Unable to allocate fsc_inode_mem_pool");
+        goto out;
+    }
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+           "fs-cache[%s] xlator=%p new fsc_inode_mem_pool=%p ",
+           FSC_CACHE_VERSION, this, conf->fsc_inode_mem_pool);
     conf->this = this;
     this->private = conf;
 
@@ -1017,6 +1030,13 @@ fsc_notify(xlator_t *this, int event, void *data, ...)
                 (void)gf_thread_cleanup_xint(conf->aux_thread);
                 conf->aux_thread = 0;
             }
+            if (conf->fsc_inode_mem_pool != NULL) {
+                gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                       "fs-cache[%s] xlator=%p down fsc_inode_mem_pool=%p ",
+                       FSC_CACHE_VERSION, this, conf->fsc_inode_mem_pool);
+                mem_pool_destroy(conf->fsc_inode_mem_pool);
+                conf->fsc_inode_mem_pool = NULL;
+            }
         }
         default:
             break;
@@ -1042,6 +1062,14 @@ fini(xlator_t *this)
         conf->aux_thread_active = _gf_false;
         (void)gf_thread_cleanup_xint(conf->aux_thread);
         conf->aux_thread = 0;
+    }
+
+    if (conf->fsc_inode_mem_pool != NULL) {
+        gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+               "fs-cache[%s] xlator=%p fini fsc_inode_mem_pool=%p ",
+               FSC_CACHE_VERSION, this, conf->fsc_inode_mem_pool);
+        mem_pool_destroy(conf->fsc_inode_mem_pool);
+        conf->fsc_inode_mem_pool = NULL;
     }
 
     pthread_mutex_destroy(&conf->inodes_lock);

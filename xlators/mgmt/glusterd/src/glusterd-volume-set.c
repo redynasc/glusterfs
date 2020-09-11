@@ -1174,12 +1174,12 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {.key = "performance.fsc-direct-io-read",
      .voltype = "performance/fs-cache",
      .op_version = 1,
-     .flags = VOLOPT_FLAG_CLIENT_OPT},  
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = "performance.fsc-min-file-size",
      .voltype = "performance/fs-cache",
      .op_version = 1,
-     .flags = VOLOPT_FLAG_CLIENT_OPT},  
-        
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
+
     /* IO-cache xlator options */
     {.key = "performance.cache-max-file-size",
      .voltype = "performance/io-cache",
