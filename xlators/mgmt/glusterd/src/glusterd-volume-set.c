@@ -1143,6 +1143,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .option = "ios-dnscache-ttl-sec",
      .op_version = 1},
     /* fs-cache xlator options */
+    {.key = "performance.fsc-pass-through",
+     .voltype = "performance/fs-cache",
+     .op_version = 1,
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = "performance.fsc-cache-dir",
      .voltype = "performance/fs-cache",
      .op_version = 1,

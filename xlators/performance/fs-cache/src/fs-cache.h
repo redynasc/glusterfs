@@ -29,7 +29,7 @@ struct fsc_conf;
 struct fsc_inode;
 struct fsc_block;
 
-#define FSC_CACHE_VERSION "v0.0.1"
+#define FSC_CACHE_VERSION "v0.0.2"
 
 #define FSC_CACHE_PATTERN_LEN 128
 struct fsc_filter {
@@ -42,20 +42,7 @@ struct fsc_inode {
                                   * io-cache translator
                                   */
     /*meta data of file on server */
-    ia_type_t ia_type;
-    ia_prot_t s_prot;
-    off_t ia_size; /*file size on server*/
-    uint32_t s_nlink;
-    uint32_t s_uid;
-    uint32_t s_gid;
-    uint32_t s_atime_nsec;
-    uint32_t s_mtime_nsec;
-    uint32_t s_ctime_nsec;
-    int64_t s_atime;
-    int64_t s_mtime;
-    int64_t s_ctime;
-    uint64_t s_rdev;
-    uint64_t s_blocks;
+    struct iatt s_iatt;
 
     pthread_mutex_t inode_lock;
     uint16_t open_mode;  // 0: init,1:local_open
@@ -99,6 +86,7 @@ struct fsc_conf {
     struct fsc_filter filters;
 
     gf_boolean_t is_enable;
+    gf_boolean_t pass_through;
 
     uint64_t min_file_size;
 
@@ -227,5 +215,8 @@ fsc_symlink(xlator_t *this, const char *oldpath, const char *newpath,
 
 int32_t
 fsc_resovle_dir(xlator_t *this, const char *file_full_path);
+
+int32_t
+fsc_set_timestamp(const char *file, struct iatt *sbuf);
 
 #endif /* __fsc_H */

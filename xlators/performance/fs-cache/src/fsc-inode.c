@@ -50,7 +50,7 @@ fsc_inode_is_cache_done(fsc_inode_t *fsc_inode)
 {
     return fsc_inode->fsc_size > 0;
     // return (fsc_inode->fsc_size > 0) &&
-    //        (fsc_inode->fsc_size >= fsc_inode->ia_size);
+    //        (fsc_inode->fsc_size >= fsc_inode->s_iatt.ia_size);
 }
 
 fsc_inode_t *
@@ -165,19 +165,7 @@ fsc_inode_from_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
                iatt->ia_mtime_nsec);
     }
 
-    fsc_inode->s_prot = iatt->ia_prot;
-    fsc_inode->s_nlink = iatt->ia_nlink;
-    fsc_inode->s_uid = iatt->ia_uid;
-    fsc_inode->s_gid = iatt->ia_gid;
-    fsc_inode->s_atime = iatt->ia_atime;
-    fsc_inode->s_atime_nsec = iatt->ia_atime_nsec;
-    fsc_inode->s_mtime = iatt->ia_mtime;
-    fsc_inode->s_mtime_nsec = iatt->ia_mtime_nsec;
-    fsc_inode->s_ctime = iatt->ia_ctime;
-    fsc_inode->s_ctime_nsec = iatt->ia_ctime_nsec;
-    fsc_inode->s_rdev = iatt->ia_rdev;
-    fsc_inode->ia_size = iatt->ia_size;
-    fsc_inode->s_blocks = iatt->ia_blocks;
+    fsc_inode->s_iatt = *iatt;
 }
 
 void
@@ -186,19 +174,7 @@ fsc_inode_to_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
     if (!iatt) {
         return;
     }
-    iatt->ia_prot = fsc_inode->s_prot;
-    iatt->ia_nlink = fsc_inode->s_nlink;
-    iatt->ia_uid = fsc_inode->s_uid;
-    iatt->ia_gid = fsc_inode->s_gid;
-    iatt->ia_atime = fsc_inode->s_atime;
-    iatt->ia_atime_nsec = fsc_inode->s_atime_nsec;
-    iatt->ia_mtime = fsc_inode->s_mtime;
-    iatt->ia_mtime_nsec = fsc_inode->s_mtime_nsec;
-    iatt->ia_ctime = fsc_inode->s_ctime;
-    iatt->ia_ctime_nsec = fsc_inode->s_ctime_nsec;
-    iatt->ia_rdev = fsc_inode->s_rdev;
-    iatt->ia_size = fsc_inode->ia_size;
-    iatt->ia_blocks = fsc_inode->s_blocks;
+    *iatt = fsc_inode->s_iatt;
 }
 
 int32_t
@@ -251,29 +227,29 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
 
     fsc_inode_lock(fsc_inode);
     {
-        old_ia_size = fsc_inode->ia_size;
-        old_mtime = fsc_inode->s_atime;
+        old_ia_size = fsc_inode->s_iatt.ia_size;
+        old_mtime = fsc_inode->s_iatt.ia_mtime;
         fsc_inode_from_iatt(fsc_inode, iabuf);
         gettimeofday(&fsc_inode->last_op_time, NULL);
 
         if (IA_ISREG(iabuf->ia_type) && old_ia_size > 0 &&
-            old_ia_size != fsc_inode->ia_size) {
+            old_ia_size != fsc_inode->s_iatt.ia_size) {
             // invalidate page cache in VFS
             inode_invalidate(inode);
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                    "fsc_inode fsc=%p inode_invalidate ia_size from %" PRId64
                    " to %" PRIu64 ",local_path=(%s),gfid=(%s)",
-                   fsc_inode, old_ia_size, fsc_inode->ia_size,
+                   fsc_inode, old_ia_size, fsc_inode->s_iatt.ia_size,
                    fsc_inode->local_path, uuid_utoa(inode->gfid));
         }
         if (IA_ISLNK(iabuf->ia_type) && old_mtime != 0 &&
-            old_mtime != fsc_inode->s_atime) {
+            old_mtime != fsc_inode->s_iatt.ia_mtime) {
             if (fsc_inode->link_target) {
                 gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                        "fsc_inode fsc=%p invalidate link_target mtime from "
                        "%" PRId64 " to %" PRIu64
                        "local_path=(%s),link_target=(%s)",
-                       fsc_inode, old_mtime, fsc_inode->s_atime,
+                       fsc_inode, old_mtime, fsc_inode->s_iatt.ia_mtime,
                        fsc_inode->local_path, fsc_inode->link_target);
                 GF_FREE(fsc_inode->link_target);
                 fsc_inode->link_target = NULL;
@@ -286,7 +262,7 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
            "fsc_inode fsc=%p update ia_size from %" PRId64 " to %" PRIu64
            ", path=%s, "
            "local_path=(%s),gfid=(%s)",
-           fsc_inode, old_ia_size, fsc_inode->ia_size, path,
+           fsc_inode, old_ia_size, fsc_inode->s_iatt.ia_size, path,
            fsc_inode->local_path, uuid_utoa(inode->gfid));
 out:
     return 0;
@@ -333,7 +309,7 @@ fsc_inode_open_for_read(xlator_t *this, fsc_inode_t *fsc_inode)
     gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_INFO,
            "fsc_inode open for read fd=%d,localsize=%" PRId64
            ",serversize=%" PRIu64 ",path=(%s),gfid=(%s)",
-           fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->ia_size,
+           fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->s_iatt.ia_size,
            fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
 out:
     return op_ret;
@@ -385,7 +361,7 @@ fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode)
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fsc_inode open for write fd=%d,localsize=%" PRId64
            ",serversize=%" PRIu64 ",path=(%s),gfid=(%s)",
-           fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->ia_size,
+           fsc_inode->fsc_fd, fsc_inode->fsc_size, fsc_inode->s_iatt.ia_size,
            fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
 out:
     return op_ret;
@@ -452,7 +428,7 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
         goto out;
     }
 
-    if ((offset + op_ret) >= fsc_inode->ia_size) {
+    if ((offset + op_ret) >= fsc_inode->s_iatt.ia_size) {
         /*op_errno = ENOENT;*/
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                "fsc_inode read local finish=(%s),fd=%d, "
@@ -521,14 +497,14 @@ fsc_inode_update_symlink(fsc_inode_t *fsc_inode, xlator_t *this,
                "local_path=(%s),old_target=(%s),link_target=(%s)",
                fsc_inode, fsc_inode->local_path, fsc_inode->link_target, link);
     } else {
-        old_mtime = fsc_inode->s_mtime;
+        old_mtime = fsc_inode->s_iatt.ia_mtime;
         fsc_inode_from_iatt(fsc_inode, sbuf);
-        if (fsc_inode->s_mtime != old_mtime) {
+        if (fsc_inode->s_iatt.ia_mtime != old_mtime) {
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                    "fsc_inode fsc=%p update2 link_target mtime from %" PRId64
                    " to %" PRIu64
                    "local_path=(%s),old_target=(%s),link_target=(%s)",
-                   fsc_inode, old_mtime, fsc_inode->s_atime,
+                   fsc_inode, old_mtime, fsc_inode->s_iatt.ia_mtime,
                    fsc_inode->local_path, fsc_inode->link_target, link);
             GF_FREE(fsc_inode->link_target);
             fsc_inode->link_target = gf_strdup(link);
@@ -584,11 +560,12 @@ fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
 
     // check mtime
     local_mtime = local_statbuf.st_mtime;
-    if (fsc_inode->s_mtime > 0 && local_mtime != fsc_inode->s_mtime) {
+    if (fsc_inode->s_iatt.ia_mtime > 0 &&
+        local_mtime != fsc_inode->s_iatt.ia_mtime) {
         gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
                "fsc_inode readlink  old lmtime=%" PRId64 " smtime=%" PRId64
                " path=(%s),gfid=(%s)",
-               local_mtime, fsc_inode->s_mtime, fsc_inode->local_path,
+               local_mtime, fsc_inode->s_iatt.ia_mtime, fsc_inode->local_path,
                uuid_utoa(fsc_inode->inode->gfid));
         return -1;
     }
