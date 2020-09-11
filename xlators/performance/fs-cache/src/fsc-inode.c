@@ -180,6 +180,19 @@ fsc_inode_to_iatt(fsc_inode_t *fsc_inode, struct iatt *iatt)
 }
 
 int32_t
+fsc_inode_invalidate(xlator_t *this, fsc_inode_t *fsc_inode, off_t old_ia_size)
+{
+    inode_invalidate(fsc_inode->inode);
+    fsc_inode->fsc_size = 0;
+    fsc_block_reset(fsc_inode);
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+           "fsc_inode fsc=%p inode_invalidate ia_size from %" PRId64
+           " to %" PRIu64 ",local_path=(%s),gfid=(%s)",
+           fsc_inode, old_ia_size, fsc_inode->s_iatt.ia_size,
+           fsc_inode->local_path, uuid_utoa(inode->gfid));
+}
+
+int32_t
 fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
 {
     off_t old_ia_size = 0;
@@ -237,12 +250,7 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
         if (IA_ISREG(iabuf->ia_type) && old_ia_size > 0 &&
             old_ia_size != fsc_inode->s_iatt.ia_size) {
             // invalidate page cache in VFS
-            inode_invalidate(inode);
-            gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-                   "fsc_inode fsc=%p inode_invalidate ia_size from %" PRId64
-                   " to %" PRIu64 ",local_path=(%s),gfid=(%s)",
-                   fsc_inode, old_ia_size, fsc_inode->s_iatt.ia_size,
-                   fsc_inode->local_path, uuid_utoa(inode->gfid));
+            fsc_inode_invalidate(this, fsc_inode, old_ia_size);
         }
         if (IA_ISLNK(iabuf->ia_type) && old_mtime != 0 &&
             old_mtime != fsc_inode->s_iatt.ia_mtime) {

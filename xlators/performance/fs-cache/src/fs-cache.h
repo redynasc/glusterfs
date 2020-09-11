@@ -199,6 +199,9 @@ int32_t
 fsc_block_remove(xlator_t *this, fsc_inode_t *inode, off_t offset, size_t size);
 
 int32_t
+fsc_block_reset(xlator_t *this, fsc_inode_t *inode);
+
+int32_t
 fsc_block_is_cache(xlator_t *this, fsc_inode_t *inode, off_t offset,
                    size_t size);
 

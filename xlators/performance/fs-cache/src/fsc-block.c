@@ -368,6 +368,23 @@ fsc_block_is_cache(xlator_t *this, fsc_inode_t *inode, off_t offset,
 }
 
 int32_t
+fsc_block_reset(xlator_t *this, fsc_inode_t *inode)
+{
+    if (!inode->write_block) {
+        return -1;
+    }
+
+    fsc_block_t *cur = NULL;
+    fsc_block_t *p = inode->write_block;
+    for (idx = 0; idx < inode->write_block_len; ++idx) {
+        cur = p + idx;
+        cur->start = 0;
+        cur->end = 0;
+    }
+    return 0;
+}
+
+int32_t
 fsc_block_flush(xlator_t *this, fsc_inode_t *inode)
 {
     char *buff = NULL;
