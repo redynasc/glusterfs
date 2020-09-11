@@ -190,6 +190,7 @@ fsc_inode_invalidate(xlator_t *this, fsc_inode_t *fsc_inode, off_t old_ia_size)
            " to %" PRIu64 ",local_path=(%s),gfid=(%s)",
            fsc_inode, old_ia_size, fsc_inode->s_iatt.ia_size,
            fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
+    return 0;
 }
 
 int32_t
