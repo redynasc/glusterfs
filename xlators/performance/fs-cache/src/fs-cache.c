@@ -163,6 +163,13 @@ int
 fsc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t offset, dict_t *dict)
 {
+    fsc_conf_t *conf = this->private;
+    if (fsc_pass_through(conf)) {
+        STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                        FIRST_CHILD(this)->fops->readdirp, fd, size, offset, dict);
+        return 0;
+    }
+
     frame->local = fd;
 
     STACK_WIND(frame, fsc_readdirp_cbk, FIRST_CHILD(this),
@@ -334,11 +341,11 @@ fsc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                        "file=%s",
                        fsc_inode->fsc_fd, fsc_inode->local_path);
             }
-            fsc_set_timestamp(fsc_inode->local_path, &fsc_inode->s_iatt);
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                    "clear pagecache fd=%d, file=%s", fsc_inode->fsc_fd,
                    fsc_inode->local_path);
         }
+        fsc_set_timestamp(fsc_inode->local_path, &fsc_inode->s_iatt);
     }
 
 unlock:
