@@ -887,7 +887,7 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("fsc-min-file-size", conf->min_file_size, options,
                      size_uint64, out);
 
-    GF_OPTION_INIT("fsc-cache-dir", tmp, str, out);
+    GF_OPTION_RECONF("fsc-cache-dir", tmp, options, str, out);
     conf->cache_dir = gf_strdup(tmp);
 
     GF_OPTION_RECONF("fsc-cache-filter", tmp, options, str, out);
