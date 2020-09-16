@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 #include <time.h>
 #include <glusterfs/locking.h>
 #include <glusterfs/timespec.h>
@@ -989,6 +990,37 @@ init(xlator_t *this)
            FSC_CACHE_VERSION, this, conf->fsc_inode_mem_pool);
     conf->this = this;
     this->private = conf;
+
+#ifndef GF_DARWIN_HOST_OS
+    {
+        struct rlimit lim;
+        lim.rlim_cur = 1048576;
+        lim.rlim_max = 1048576;
+
+        if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+            gf_msg(this->name, GF_LOG_WARNING, errno, FS_CACHE_MSG_WARNING,
+                   "Failed to set 'ulimit -n "
+                   " 1048576'");
+            lim.rlim_cur = 65536;
+            lim.rlim_max = 65536;
+
+            if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+                gf_msg(this->name, GF_LOG_WARNING, errno,
+                       FS_CACHE_MSG_WARNING,
+                       "Failed to set maximum allowed open "
+                       "file descriptors to 64k");
+            } else {
+                gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                       "Maximum allowed "
+                       "open file descriptors set to 65536");
+            }
+        }else{
+            gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                   "Maximum allowed "
+                   "open file descriptors set to 1048576");
+        }
+    }
+#endif
 
     ret = fsc_spawn_aux_thread(this);
     if (ret)
