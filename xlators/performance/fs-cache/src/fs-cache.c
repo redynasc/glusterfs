@@ -525,6 +525,9 @@ fsc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     return 0;
 
 wind:
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+               "fsc_inode readlink from server------,path=%s, gfid=(%s)",
+               loc->path,  uuid_utoa(loc->inode->gfid));
     STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->readlink,
                     loc, size, xdata);
     return 0;
@@ -577,6 +580,9 @@ fsc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
     }
 
 wind:
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+               "fsc_inode open from server------,path=%s, gfid=(%s)",
+               loc->path,  uuid_utoa(loc->inode->gfid));
     STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
                     loc, flags, fd, xdata);
     return 0;
