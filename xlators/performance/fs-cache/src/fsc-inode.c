@@ -110,7 +110,7 @@ fsc_inode_create(xlator_t *this, inode_t *inode, char *path)
         list_add(&fsc_inode->inode_list, &priv->inodes);
     }
     fsc_inodes_list_unlock(priv);
-    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+    gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_DEBUG,
            "adding to fsc=%p inode_list path=(%s),real_path=(%s)", fsc_inode,
            path, fsc_inode->local_path);
 out:
@@ -505,8 +505,8 @@ fsc_inode_update_symlink(fsc_inode_t *fsc_inode, xlator_t *this,
 
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                "fsc_inode fsc=%p update1 link_target "
-               "local_path=(%s),old_target=(%s),link_target=(%s)",
-               fsc_inode, fsc_inode->local_path, fsc_inode->link_target, link);
+               "local_path=(%s),link_target=(%s)",
+               fsc_inode, fsc_inode->local_path, fsc_inode->link_target);
     } else {
         old_mtime = fsc_inode->s_iatt.ia_mtime;
         fsc_inode_from_iatt(fsc_inode, sbuf);
