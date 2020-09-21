@@ -148,7 +148,7 @@ fsc_block_init(xlator_t *this, fsc_inode_t *inode)
                inode->local_path);
     } else {
         attr = buff;
-        gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+        gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "sys_fgetxattr success fd=%d,path=(%s),attr=%s", inode->fsc_fd,
                inode->local_path, attr);
     }

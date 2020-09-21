@@ -441,7 +441,7 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
 
     if ((offset + op_ret) >= fsc_inode->s_iatt.ia_size) {
         /*op_errno = ENOENT;*/
-        gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+        gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_DEBUG,
                "fsc_inode read local finish=(%s),fd=%d, "
                "offset=%" PRId64 ",req_size=%" GF_PRI_SIZET
                ", rsp_size=%d, op_errno=%d",
