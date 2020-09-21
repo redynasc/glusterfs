@@ -29,11 +29,33 @@ struct fsc_conf;
 struct fsc_inode;
 struct fsc_block;
 
-#define FSC_CACHE_VERSION "v0.0.2"
+#define FSC_CACHE_VERSION "v0.0.3"
 
 #define FSC_CACHE_PATTERN_LEN 128
 struct fsc_filter {
     char pattern[3][128];
+};
+
+struct fsc_statistics {
+    struct timeval last_dump_time;
+
+    gf_atomic_t lookup_hit;
+    gf_atomic_t lookup_miss;
+
+    gf_atomic_t readlink_hit;
+    gf_atomic_t readlink_miss;
+
+    gf_atomic_t open_hit;
+    gf_atomic_t open_miss;
+
+    gf_atomic_t flush_hit;
+    gf_atomic_t flush_miss;
+
+    gf_atomic_t read_hit;
+    gf_atomic_t read_miss;
+
+    gf_atomic_t fstat_hit;
+    gf_atomic_t fstat_miss;
 };
 
 struct fsc_inode {
@@ -88,6 +110,8 @@ struct fsc_conf {
     gf_boolean_t is_enable;
     gf_boolean_t pass_through;
 
+    uint32_t lookup_local; /*0 not >0 do*/
+
     uint64_t min_file_size;
 
     uint32_t disk_reserve;
@@ -98,6 +122,8 @@ struct fsc_conf {
 
     uint32_t direct_io_read;
     uint32_t direct_io_write;
+
+    struct fsc_statistics fsc_counter;
 
     pthread_t aux_thread;
     gf_boolean_t aux_thread_active;
@@ -154,7 +180,7 @@ fsc_pass_through(fsc_conf_t *conf);
 gf_boolean_t
 fsc_inode_is_idle(fsc_inode_t *fsc_inode);
 
-int32_t
+fsc_inode_t *
 fsc_inode_update(xlator_t *this, inode_t *inode, char *path,
                  struct iatt *iabuf);
 
@@ -223,5 +249,11 @@ fsc_resovle_dir(xlator_t *this, const char *file_full_path);
 
 int32_t
 fsc_set_timestamp(const char *file, struct iatt *sbuf);
+
+int32_t
+fsc_set_local_gfid(xlator_t *this, const char *file_full_path, uuid_t in_gfid);
+
+int32_t
+fsc_get_local_gfid(const char *file_full_path, uuid_t o_gfid);
 
 #endif /* __fsc_H */

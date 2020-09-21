@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <time.h>
+#define LOCAL_GFID_ATTR_NAME "user.gfs.cache.id"
 
 int32_t
 fsc_set_timestamp(const char *file, struct iatt *sbuf)
@@ -66,6 +67,47 @@ fsc_set_timestamp(const char *file, struct iatt *sbuf)
 
     ret = sys_utimes(file, new_time);
 #endif
+    return ret;
+}
+
+int32_t
+fsc_set_local_gfid(xlator_t *this, const char *file_full_path, uuid_t in_gfid)
+{
+    char uuid_str[GF_UUID_BUF_SIZE] = {0};
+    gf_uuid_unparse(in_gfid, uuid_str);
+    int32_t ret = 0;
+    ret = sys_lsetxattr(file_full_path, LOCAL_GFID_ATTR_NAME, uuid_str,
+                        GF_UUID_BUF_SIZE - 1, 0);
+
+    if (ret != 0) {
+        if (errno == ENOENT) {
+            fsc_resovle_dir(this, file_full_path);
+            ret = sys_lsetxattr(file_full_path, LOCAL_GFID_ATTR_NAME, uuid_str,
+                                GF_UUID_BUF_SIZE - 1, 0);
+        }
+    }
+
+    gf_msg("fs-cache", GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
+           "set_local_gfid %s, ret=%d, uuid=%s", file_full_path, ret, uuid_str);
+    return ret;
+}
+
+int32_t
+fsc_get_local_gfid(const char *file_full_path, uuid_t o_gfid)
+{
+    char uuid_str[GF_UUID_BUF_SIZE] = {0};
+    int32_t ret = 0;
+    ret = sys_lgetxattr(file_full_path, LOCAL_GFID_ATTR_NAME, uuid_str,
+                        GF_UUID_BUF_SIZE);
+    if (ret != -1) {
+        if (gf_uuid_parse(uuid_str, o_gfid)) {
+            gf_msg("fs-cache", GF_LOG_ERROR, 0, FS_CACHE_MSG_ERROR,
+                   "Failed to parse uuid for %s", uuid_str);
+            return -1;
+        }
+    }
+    gf_msg("fs-cache", GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
+           "get_local_gfid %s, ret=%d, uuid=%s", file_full_path, ret, uuid_str);
     return ret;
 }
 

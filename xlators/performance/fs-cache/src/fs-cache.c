@@ -55,7 +55,10 @@ fsc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *stbuf, dict_t *xdata, struct iatt *postparent)
 {
     fsc_local_t *local = NULL;
-
+    fsc_inode_t *fsc_inode = NULL;
+    fsc_conf_t *conf = this->private;
+    char *tmp = NULL;
+    int32_t tmp_len = 0;
     if (op_ret != 0)
         goto out;
 
@@ -72,8 +75,37 @@ fsc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    fsc_inode_update(this, inode, (char *)local->file_loc.path, stbuf);
+    fsc_inode = fsc_inode_update(this, inode, (char *)local->file_loc.path,
+                                 stbuf);
+    if (conf->lookup_local > 0 && !gf_uuid_is_null(stbuf->ia_gfid)) {
+        if (fsc_inode) {
+            fsc_set_local_gfid(this, fsc_inode->local_path, stbuf->ia_gfid);
+        } else if (IA_ISDIR(stbuf->ia_type) &&
+                   !__is_root_gfid(stbuf->ia_gfid)) {
+            tmp_len = strlen(conf->cache_dir) +
+                      strlen((char *)local->file_loc.path) + 1 + 1;
+            tmp = alloca(tmp_len);
+            snprintf(tmp, tmp_len, "%s%s/", conf->cache_dir,
+                     (char *)local->file_loc.path);
+            fsc_set_local_gfid(this, tmp, stbuf->ia_gfid);
+        }
+    }
+    // if(xdata){
+    //     data_pair_t *pairs = xdata->members_list;
+    //     data_pair_t *next = NULL;
 
+    //     while (pairs) {
+    //         next = pairs->next;
+    //         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+    //                "fsc_lookup_cbk path=%s,key=%s,value=%s",
+    //                 (char *)local->file_loc.path, pairs->key,
+    //                 pairs->value->data);
+    //         pairs = next;
+    //     }
+    // }
+    // gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+    //        "fsc_lookup_cbk path=%s,stbuf ia_gfid=%s",
+    //         (char *)local->file_loc.path, uuid_utoa(stbuf->ia_gfid));
 out:
     if (frame->local != NULL) {
         local = frame->local;
@@ -91,11 +123,42 @@ fsc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     fsc_conf_t *conf = this->private;
     fsc_local_t *local = NULL;
     int32_t op_errno = -1, ret = -1;
-
+    char *tmp = NULL;
+    int32_t tmp_len = 0;
+    struct iatt stbuf = {
+        0,
+    };
+    struct stat lstatbuf = {
+        0,
+    };
     if (fsc_pass_through(conf)) {
         STACK_WIND_TAIL(frame, FIRST_CHILD(this),
                         FIRST_CHILD(this)->fops->lookup, loc, xdata);
         return 0;
+    }
+
+    /*get*/
+    if (conf->lookup_local > 0 && !__is_root_gfid(loc->inode->gfid) &&
+        !gf_uuid_is_null(loc->inode->gfid)) {
+        tmp_len = strlen(conf->cache_dir) + strlen((char *)loc->path) + 1;
+        tmp = alloca(tmp_len);
+        snprintf(tmp, tmp_len, "%s%s", conf->cache_dir, (char *)loc->path);
+        if (fsc_get_local_gfid(tmp, stbuf.ia_gfid) != -1) {
+            if (sys_lstat(tmp, &lstatbuf) != -1) {
+                iatt_from_stat(&stbuf, &lstatbuf);
+                gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
+                       "fsc_inode lookup from local------,path=%s, gfid=(%s)",
+                       loc->path, uuid_utoa(stbuf.ia_gfid));
+                GF_ATOMIC_INC(conf->fsc_counter.lookup_hit);
+                STACK_UNWIND_STRICT(lookup, frame, 0, 0, loc->inode, &stbuf,
+                                    NULL, NULL);
+                return 0;
+            } else {
+                gf_msg(this->name, GF_LOG_WARNING, errno, FS_CACHE_MSG_INFO,
+                       "fsc_inode lstat from local error,path=%s, gfid=(%s)",
+                       loc->path, uuid_utoa(stbuf.ia_gfid));
+            }
+        }
     }
 
     local = mem_get0(this->local_pool);
@@ -115,7 +178,7 @@ fsc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     }
 
     frame->local = local;
-
+    GF_ATOMIC_INC(conf->fsc_counter.lookup_miss);
     STACK_WIND(frame, fsc_lookup_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->lookup, loc, xdata);
 
@@ -136,9 +199,13 @@ int
 fsc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                  int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
+    fsc_conf_t *conf = this->private;
     gf_dirent_t *entry = NULL;
     char *path = NULL;
     fd_t *fd = NULL;
+    fsc_inode_t *fsc_inode = NULL;
+    char *tmp = NULL;
+    int32_t tmp_len = 0;
 
     fd = frame->local;
     frame->local = NULL;
@@ -149,7 +216,18 @@ fsc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     list_for_each_entry(entry, &entries->list, list)
     {
         inode_path(fd->inode, entry->d_name, &path);
-        fsc_inode_update(this, entry->inode, path, &entry->d_stat);
+        fsc_inode = fsc_inode_update(this, entry->inode, path, &entry->d_stat);
+        if (conf->lookup_local > 0 && !gf_uuid_is_null(entry->d_stat.ia_gfid)) {
+            if (fsc_inode) {
+                fsc_set_local_gfid(this, path, entry->d_stat.ia_gfid);
+            } else if (IA_ISDIR(entry->d_stat.ia_type) &&
+                       !__is_root_gfid(entry->d_stat.ia_gfid)) {
+                tmp_len = strlen(conf->cache_dir) + strlen(path) + 1 + 1;
+                tmp = alloca(tmp_len);
+                snprintf(tmp, tmp_len, "%s%s/", conf->cache_dir, path);
+                fsc_set_local_gfid(this, tmp, entry->d_stat.ia_gfid);
+            }
+        }
         GF_FREE(path);
         path = NULL;
     }
@@ -167,7 +245,8 @@ fsc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     fsc_conf_t *conf = this->private;
     if (fsc_pass_through(conf)) {
         STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                        FIRST_CHILD(this)->fops->readdirp, fd, size, offset, dict);
+                        FIRST_CHILD(this)->fops->readdirp, fd, size, offset,
+                        dict);
         return 0;
     }
 
@@ -413,6 +492,7 @@ fsc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     ret = fsc_inode_read(fsc_inode, frame, this, fd, size, offset, flags,
                          xdata);
     if (ret >= 0) {
+        GF_ATOMIC_INC(conf->fsc_counter.read_hit);
         return 0;
     }
 
@@ -447,6 +527,8 @@ fsc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     STACK_WIND(frame, fsc_readv_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->readv, wind_fd, size, offset, 0, xdata);
+
+    GF_ATOMIC_INC(conf->fsc_counter.read_miss);
 
     return 0;
 
@@ -507,6 +589,7 @@ fsc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     /* try read from local file*/
     ret = fsc_inode_read_link(fsc_inode, frame, this, size, xdata);
     if (ret >= 0) {
+        GF_ATOMIC_INC(conf->fsc_counter.readlink_hit);
         return 0;
     }
 
@@ -525,9 +608,10 @@ fsc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
     return 0;
 
 wind:
-    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-               "fsc_inode readlink from server------,path=%s, gfid=(%s)",
-               loc->path,  uuid_utoa(loc->inode->gfid));
+    gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_DEBUG,
+           "fsc_inode readlink from server------,path=%s, gfid=(%s)", loc->path,
+           uuid_utoa(loc->inode->gfid));
+    GF_ATOMIC_INC(conf->fsc_counter.readlink_miss);
     STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->readlink,
                     loc, size, xdata);
     return 0;
@@ -572,7 +656,7 @@ fsc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
     fsc_inode_unlock(fsc_inode);
 
     if (cache_ok) {
-        gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_INFO,
+        gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_cache open local success,path=(%s),gfid=(%s)",
                fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
         STACK_UNWIND_STRICT(open, frame, op_ret, 0, fd, xdata);
@@ -580,9 +664,9 @@ fsc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
     }
 
 wind:
-    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-               "fsc_inode open from server------,path=%s, gfid=(%s)",
-               loc->path,  uuid_utoa(loc->inode->gfid));
+    gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_DEBUG,
+           "fsc_inode open from server------,path=%s, gfid=(%s)", loc->path,
+           uuid_utoa(loc->inode->gfid));
     STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
                     loc, flags, fd, xdata);
     return 0;
@@ -613,14 +697,20 @@ fsc_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     open_mode = fsc_inode->open_mode;
     fsc_inode_unlock(fsc_inode);
     if (open_mode == 1) {
-        gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_INFO,
+        gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_cache flush local success,path=(%s),gfid=(%s)",
                fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
         STACK_UNWIND_STRICT(flush, frame, 0, 0, NULL);
+
+        GF_ATOMIC_INC(conf->fsc_counter.flush_hit);
         return 0;
     }
 
 wind:
+    gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_DEBUG,
+           "fsc_inode flush from server------gfid=(%s)",
+           uuid_utoa(fd->inode->gfid));
+    GF_ATOMIC_INC(conf->fsc_counter.flush_miss);
     STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->flush,
                     fd, xdata);
     return 0;
@@ -654,8 +744,10 @@ fsc_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
            fsc_inode, fsc_inode->local_path, stat->ia_size, stat->ia_mtime,
            stat->ia_mtime_nsec);
     STACK_UNWIND_STRICT(fstat, frame, 0, 0, stat, NULL);
+    GF_ATOMIC_INC(conf->fsc_counter.fstat_hit);
     return 0;
 wind:
+    GF_ATOMIC_INC(conf->fsc_counter.fstat_miss);
     STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->fstat,
                     fd, xdata);
     return 0;
@@ -729,24 +821,82 @@ fsc_forget(xlator_t *this, inode_t *inode)
     return 0;
 }
 
+void
+fsc_init_counter(fsc_conf_t *conf)
+{
+    gettimeofday(&conf->fsc_counter.last_dump_time, NULL);
+    GF_ATOMIC_INIT(conf->fsc_counter.lookup_hit, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.lookup_miss, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.readlink_hit, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.readlink_miss, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.open_hit, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.open_miss, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.flush_hit, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.flush_miss, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.read_hit, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.read_miss, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.fstat_hit, 0);
+    GF_ATOMIC_INIT(conf->fsc_counter.fstat_miss, 0);
+}
+
 int
 fsc_priv_dump(xlator_t *this)
 {
     fsc_conf_t *conf = NULL;
     char key_prefix[GF_DUMP_MAX_BUF_LEN];
-
+    int64_t sec_elapsed = 0;
+    struct timeval now = {
+        0,
+    };
     if (!this)
         return 0;
-
     conf = this->private;
     if (!conf)
         return 0;
 
-    snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
+    gettimeofday(&now, NULL);
+    sec_elapsed = now.tv_sec - conf->fsc_counter.last_dump_time.tv_sec;
 
+    snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
     gf_proc_dump_add_section("%s", key_prefix);
 
+    gf_proc_dump_write("fsc_statistics duration %d secs:", "%" PRId64,
+                       sec_elapsed);
+
+    gf_proc_dump_write("lookup_hit", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.lookup_hit));
+    gf_proc_dump_write("lookup_miss", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.lookup_miss));
+
+    gf_proc_dump_write("readlink_hit", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.readlink_hit));
+    gf_proc_dump_write("readlink_miss", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.readlink_miss));
+
+    gf_proc_dump_write("open_hit", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.open_hit));
+    gf_proc_dump_write("open_miss", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.open_miss));
+
+    gf_proc_dump_write("flush_hit", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.flush_hit));
+    gf_proc_dump_write("flush_miss", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.flush_miss));
+
+    gf_proc_dump_write("read_hit", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.read_hit));
+    gf_proc_dump_write("read_miss", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.read_miss));
+
+    gf_proc_dump_write("fstat_hit", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.fstat_hit));
+    gf_proc_dump_write("fstat_miss", "%" PRId64,
+                       GF_ATOMIC_GET(conf->fsc_counter.fstat_miss));
+
+    gf_proc_dump_write("inodes_count", "%d", conf->inodes_count);
     gf_proc_dump_write("cache-dir", "%s", conf->cache_dir);
+
+    fsc_init_counter(conf);
 
     return 0;
 }
@@ -877,8 +1027,6 @@ reconfigure(xlator_t *this, dict_t *options)
 
     conf = this->private;
 
-    GF_OPTION_RECONF("fsc-pass-through", conf->pass_through, options, bool,
-                     out);
     GF_OPTION_RECONF("fsc-disk-reserve", conf->disk_reserve, options, uint32,
                      out);
     GF_OPTION_RECONF("fsc-resycle-idle-inode", conf->resycle_idle_inode,
@@ -898,18 +1046,25 @@ reconfigure(xlator_t *this, dict_t *options)
     conf->cache_dir = gf_strdup(tmp);
 
     GF_OPTION_RECONF("fsc-cache-filter", tmp, options, str, out);
-
     fsc_resolve_filters(this, conf, tmp);
+
+    GF_OPTION_RECONF("fsc-pass-through", conf->pass_through, options, bool,
+                     out);
+    GF_OPTION_RECONF("fsc-lookup-local", conf->lookup_local, options, uint32,
+                     out);
+
     ret = 0;
 out:
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fs-cache[%s] xlator=%p reconfigure options "
-           "cache_dir=%s,disk_reserve=%d,pass_through=%d,resycle_idle_inode=%d,"
+           "cache_dir=%s,disk_reserve=%d,pass_through=%d,lookup_local=%d,"
+           "resycle_idle_inode=%d,"
            "time_idle_inode="
            "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%" PRIu64,
            FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve,
-           conf->pass_through, conf->resycle_idle_inode, conf->time_idle_inode,
-           conf->direct_io_read, conf->direct_io_write, conf->min_file_size);
+           conf->pass_through, conf->lookup_local, conf->resycle_idle_inode,
+           conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
+           conf->min_file_size);
 
     return ret;
 }
@@ -952,6 +1107,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("fsc-direct-io-read", conf->direct_io_read, uint32, out);
     GF_OPTION_INIT("fsc-direct-io-write", conf->direct_io_write, uint32, out);
     GF_OPTION_INIT("fsc-min-file-size", conf->min_file_size, size_uint64, out);
+    GF_OPTION_INIT("fsc-lookup-local", conf->lookup_local, uint32, out);
 
     conf->is_enable = _gf_true;
     ret = sys_stat(conf->cache_dir, &fstatbuf);
@@ -966,12 +1122,14 @@ init(xlator_t *this)
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fs-cache[%s] xlator=%p init options "
-           "cache_dir=%s,disk_reserve=%d,pass_through=%d,resycle_idle_inode=%d,"
+           "cache_dir=%s,disk_reserve=%d,pass_through=%d,lookup_local=%d,"
+           "resycle_idle_inode=%d,"
            "time_idle_inode="
            "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%" PRIu64,
            FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve,
-           conf->pass_through, conf->resycle_idle_inode, conf->time_idle_inode,
-           conf->direct_io_read, conf->direct_io_write, conf->min_file_size);
+           conf->pass_through, conf->lookup_local, conf->resycle_idle_inode,
+           conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
+           conf->min_file_size);
 
     INIT_LIST_HEAD(&conf->inodes);
     pthread_mutex_init(&conf->inodes_lock, NULL);
@@ -994,6 +1152,9 @@ init(xlator_t *this)
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fs-cache[%s] xlator=%p new fsc_inode_mem_pool=%p ",
            FSC_CACHE_VERSION, this, conf->fsc_inode_mem_pool);
+
+    fsc_init_counter(conf);
+
     conf->this = this;
     this->private = conf;
 
@@ -1011,8 +1172,7 @@ init(xlator_t *this)
             lim.rlim_max = 65536;
 
             if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-                gf_msg(this->name, GF_LOG_WARNING, errno,
-                       FS_CACHE_MSG_WARNING,
+                gf_msg(this->name, GF_LOG_WARNING, errno, FS_CACHE_MSG_WARNING,
                        "Failed to set maximum allowed open "
                        "file descriptors to 64k");
             } else {
@@ -1020,7 +1180,7 @@ init(xlator_t *this)
                        "Maximum allowed "
                        "open file descriptors set to 65536");
             }
-        }else{
+        } else {
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                    "Maximum allowed "
                    "open file descriptors set to 1048576");
@@ -1174,7 +1334,15 @@ struct volume_options options[] = {
         .description = "file cache local disk only when match the pattern, the "
                        "length of pattern string limit 128, split by semicolon",
     },
-
+    {.key = {"fsc-lookup-local"},
+     .type = GF_OPTION_TYPE_INT,
+     .min = 0,
+     .max = 10,
+     .default_value = "0",
+     .tags = {"fsc"},
+     .description = "0 do not;>0 do",
+     .op_version = {1},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"fsc-disk-reserve"},
      .type = GF_OPTION_TYPE_INT,
      .min = 10,

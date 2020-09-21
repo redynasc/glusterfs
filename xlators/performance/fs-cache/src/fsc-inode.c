@@ -193,7 +193,7 @@ fsc_inode_invalidate(xlator_t *this, fsc_inode_t *fsc_inode, off_t old_ia_size)
     return 0;
 }
 
-int32_t
+fsc_inode_t *
 fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
 {
     off_t old_ia_size = 0;
@@ -276,7 +276,7 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
            fsc_inode, old_ia_size, fsc_inode->s_iatt.ia_size, path,
            fsc_inode->local_path, uuid_utoa(inode->gfid));
 out:
-    return 0;
+    return fsc_inode;
 }
 
 int32_t
