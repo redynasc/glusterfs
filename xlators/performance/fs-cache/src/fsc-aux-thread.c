@@ -104,6 +104,8 @@ fsc_clear_idle_node(xlator_t *this)
     }
     fsc_inodes_delete_list_unlock(conf);
 
+    curr = NULL;
+    tmp = NULL;
     gettimeofday(&now, NULL);
 
     fsc_inodes_list_lock(conf);
