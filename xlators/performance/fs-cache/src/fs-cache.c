@@ -817,6 +817,7 @@ fsc_forget(xlator_t *this, inode_t *inode)
         }
         fsc_inodes_list_unlock(conf);
 
+        inode_ctx_put(curr->inode, this, (uint64_t)0);
         fsc_inode_destroy(fsc_inode, 0);
     }
     return 0;
