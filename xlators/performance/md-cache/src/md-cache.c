@@ -79,7 +79,7 @@ struct mdc_conf {
     gf_boolean_t cache_statfs;
     struct mdc_statfs_cache statfs_cache;
     char *mdc_xattr_str;
-    gf_atomic_int32_t generation;
+    gf_atomic_uint32_t generation;
 };
 
 struct mdc_local;
@@ -196,6 +196,7 @@ mdc_get_generation(xlator_t *this, inode_t *inode)
     struct mdc_conf *conf = NULL;
     uint64_t gen = 0;
     struct md_cache *mdc = NULL;
+    uint32_t rollover_bak = 0;
 
     conf = this->private;
 
@@ -1213,6 +1214,7 @@ int
 mdc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
     int ret = 0;
+    int lost = 0;
     struct iatt stbuf = {
         0,
     };
@@ -1227,6 +1229,7 @@ mdc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     local = mdc_local_get(frame, loc->inode);
     if (!local) {
         GF_ATOMIC_INC(conf->mdc_counter.stat_miss);
+        lost = 1;
         goto uncached;
     }
 
@@ -1234,17 +1237,20 @@ mdc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     if (!inode_is_linked(loc->inode)) {
         GF_ATOMIC_INC(conf->mdc_counter.stat_miss);
+        lost = 2;
         goto uncached;
     }
 
     if (mdc_inode_reset_need_lookup(this, loc->inode)) {
         GF_ATOMIC_INC(conf->mdc_counter.need_lookup);
+        lost = 3;
         goto uncached;
     }
 
     ret = mdc_inode_iatt_get(this, loc->inode, &stbuf);
     if (ret != 0) {
         GF_ATOMIC_INC(conf->mdc_counter.stat_miss);
+        lost = 4;
         goto uncached;
     }
 
@@ -1252,11 +1258,13 @@ mdc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         ret = mdc_inode_xatt_get(this, loc->inode, &xattr_rsp);
         if (ret != 0) {
             GF_ATOMIC_INC(conf->mdc_counter.xattr_miss);
+            lost = 5;
             goto uncached;
         }
 
         if (!mdc_xattr_satisfied(this, xdata, xattr_rsp)) {
             GF_ATOMIC_INC(conf->mdc_counter.xattr_miss);
+            lost = 6;
             goto uncached;
         }
     }
@@ -1275,6 +1283,10 @@ uncached:
         xdata = xattr_alloc = dict_new();
     if (xdata)
         mdc_load_reqs(this, xdata);
+ 
+    gf_msg("md-cache", GF_LOG_DEBUG, 0,
+           MD_CACHE_MSG_DISCARD_UPDATE,
+          "hit lost %d,path=%s:%s",lost, loc->path?loc->path:"nil",loc->name?loc->name:"nil");
 
     STACK_WIND(frame, mdc_lookup_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->lookup, loc, xdata);
