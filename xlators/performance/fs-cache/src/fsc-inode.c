@@ -120,12 +120,13 @@ fsc_inode_pendding_delete(fsc_inode_t *fsc_inode, int32_t tag)
            tag, fsc_inode->fsc_fd, fsc_inode->local_path);
 
     inode_ctx_put(fsc_inode->inode, conf->this, (uint64_t)0);
+    inode_unref(fsc_inode->inode);
 
-    fsc_inodes_list_lock(conf);
+    fsc_inodes_delete_list_lock(conf);
     {
         list_add(&fsc_inode->inode_list, &conf->inodes_delete);
     }
-    fsc_inodes_list_unlock(conf);
+    fsc_inodes_delete_list_unlock(conf);
 }
 
 void
@@ -135,8 +136,6 @@ fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
     gf_msg(conf->this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "xlator=%p, destroy fsc tag=%d,fd=%d,path=%s", conf->this, tag,
            fsc_inode->fsc_fd, fsc_inode->local_path);
-
-    inode_unref(fsc_inode->inode);
 
     fsc_inode_lock(fsc_inode);
     {

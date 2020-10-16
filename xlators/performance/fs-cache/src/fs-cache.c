@@ -816,9 +816,7 @@ fsc_forget(xlator_t *this, inode_t *inode)
             list_del_init(&fsc_inode->inode_list);
         }
         fsc_inodes_list_unlock(conf);
-
-        inode_ctx_put(curr->inode, this, (uint64_t)0);
-        fsc_inode_destroy(fsc_inode, 0);
+        fsc_inode_pendding_delete(fsc_inode, 0);
     }
     return 0;
 }
@@ -1236,16 +1234,15 @@ fsc_notify(xlator_t *this, int event, void *data, ...)
             list_for_each_entry_safe(curr, tmp, &clear_list, inode_list)
             {
                 list_del(&curr->inode_list);
-                inode_ctx_put(curr->inode, this, (uint64_t)0);
-                fsc_inode_destroy(curr, 3);
+                fsc_inode_pendding_delete(curr, 3);
             }
 
             INIT_LIST_HEAD(&clear_list);
-            fsc_inodes_list_lock(conf);
+            fsc_inodes_delete_list_lock(conf);
             {
                 list_replace_init(&conf->inodes_delete, &clear_list);
             }
-            fsc_inodes_list_unlock(conf);
+            fsc_inodes_delete_list_unlock(conf);
 
             list_for_each_entry_safe(curr, tmp, &clear_list, inode_list)
             {
