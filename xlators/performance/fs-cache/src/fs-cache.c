@@ -816,6 +816,7 @@ fsc_forget(xlator_t *this, inode_t *inode)
             list_del_init(&fsc_inode->inode_list);
         }
         fsc_inodes_list_unlock(conf);
+
         fsc_inode_destroy(fsc_inode, 0);
     }
     return 0;
@@ -860,7 +861,7 @@ fsc_priv_dump(xlator_t *this)
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
     gf_proc_dump_add_section("%s", key_prefix);
 
-    gf_proc_dump_write("fsc_statistics", "duration %d secs:", sec_elapsed);
+    gf_proc_dump_write("fsc_statistics", "duration %d secs:", (int)sec_elapsed);
 
     gf_proc_dump_write("lookup_hit", "%" PRId64,
                        GF_ATOMIC_GET(conf->fsc_counter.lookup_hit));
@@ -1134,6 +1135,9 @@ init(xlator_t *this)
     pthread_mutex_init(&conf->inodes_lock, NULL);
     pthread_mutex_init(&conf->aux_lock, NULL);
 
+    INIT_LIST_HEAD(&conf->inodes_delete);
+    pthread_mutex_init(&conf->inodes_delete_lock, NULL);
+
     this->local_pool = mem_pool_new(fsc_local_t, 64);
     if (!this->local_pool) {
         ret = -1;
@@ -1214,8 +1218,13 @@ fsc_notify(xlator_t *this, int event, void *data, ...)
             gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                    "fs-cache xlator=%p down", this);
 
-            INIT_LIST_HEAD(&clear_list);
+            if (conf->aux_thread) {
+                conf->aux_thread_active = _gf_false;
+                (void)gf_thread_cleanup_xint(conf->aux_thread);
+                conf->aux_thread = 0;
+            }
 
+            INIT_LIST_HEAD(&clear_list);
             fsc_inodes_list_lock(conf);
             {
                 list_replace_init(&conf->inodes, &clear_list);
@@ -1226,14 +1235,23 @@ fsc_notify(xlator_t *this, int event, void *data, ...)
             list_for_each_entry_safe(curr, tmp, &clear_list, inode_list)
             {
                 list_del(&curr->inode_list);
+                inode_ctx_put(curr->inode, this, (uint64_t)0);
                 fsc_inode_destroy(curr, 3);
             }
 
-            if (conf->aux_thread) {
-                conf->aux_thread_active = _gf_false;
-                (void)gf_thread_cleanup_xint(conf->aux_thread);
-                conf->aux_thread = 0;
+            INIT_LIST_HEAD(&clear_list);
+            fsc_inodes_list_lock(conf);
+            {
+                list_replace_init(&conf->inodes_delete, &clear_list);
             }
+            fsc_inodes_list_unlock(conf);
+
+            list_for_each_entry_safe(curr, tmp, &clear_list, inode_list)
+            {
+                list_del(&curr->inode_list);
+                fsc_inode_destroy(curr, 3);
+            }
+
             if (conf->fsc_inode_mem_pool != NULL) {
                 gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                        "fs-cache[%s] xlator=%p down fsc_inode_mem_pool=%p ",
@@ -1277,6 +1295,7 @@ fini(xlator_t *this)
     }
 
     pthread_mutex_destroy(&conf->inodes_lock);
+    pthread_mutex_destroy(&conf->inodes_delete_lock);
     pthread_mutex_destroy(&conf->aux_lock);
     GF_FREE(conf);
 

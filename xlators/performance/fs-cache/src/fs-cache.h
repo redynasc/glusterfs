@@ -105,6 +105,9 @@ struct fsc_conf {
     uint32_t inodes_count;
     pthread_mutex_t inodes_lock;
 
+    struct list_head inodes_delete; /* list of inodes pending delete */
+    pthread_mutex_t inodes_delete_lock;
+
     struct fsc_filter filters;
 
     gf_boolean_t is_enable;
@@ -151,6 +154,20 @@ typedef struct fsc_block fsc_block_t;
         pthread_mutex_unlock(&priv->inodes_lock);                              \
     } while (0)
 
+#define fsc_inodes_delete_list_lock(priv)                                      \
+    do {                                                                       \
+        gf_msg_trace(priv->this->name, 0, "locked inodes_delete_list(%p)",     \
+                     priv);                                                    \
+        pthread_mutex_lock(&priv->inodes_delete_lock);                         \
+    } while (0)
+
+#define fsc_inodes_delete_list_unlock(priv)                                    \
+    do {                                                                       \
+        gf_msg_trace(priv->this->name, 0, "unlocked inodes_delete_list(%p)",   \
+                     priv);                                                    \
+        pthread_mutex_unlock(&priv->inodes_delete_lock);                       \
+    } while (0)
+
 #define fsc_inode_lock(fsc_inode)                                              \
     do {                                                                       \
         gf_msg_trace(fsc_inode->conf->this->name, 0, "locked fsc_inode(%p)",   \
@@ -172,13 +189,16 @@ void
 fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag);
 
 void
+fsc_inode_pendding_delete(fsc_inode_t *fsc_inode, int32_t tag);
+
+void
 fsc_inode_fini(fsc_conf_t *conf);
 
 gf_boolean_t
 fsc_pass_through(fsc_conf_t *conf);
 
 gf_boolean_t
-fsc_inode_is_idle(fsc_inode_t *fsc_inode);
+fsc_inode_is_idle(fsc_inode_t *fsc_inode, struct timeval *now);
 
 fsc_inode_t *
 fsc_inode_update(xlator_t *this, inode_t *inode, char *path,

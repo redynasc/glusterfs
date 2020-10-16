@@ -25,20 +25,14 @@
 #define ALIGN_SIZE 4096
 
 gf_boolean_t
-fsc_inode_is_idle(fsc_inode_t *fsc_inode)
+fsc_inode_is_idle(fsc_inode_t *fsc_inode, struct timeval *now)
 {
     gf_boolean_t is_idle = _gf_false;
     int64_t sec_elapsed = 0;
-    struct timeval now = {
-        0,
-    };
     fsc_conf_t *conf = NULL;
-
     conf = fsc_inode->conf;
 
-    gettimeofday(&now, NULL);
-
-    sec_elapsed = now.tv_sec - fsc_inode->last_op_time.tv_sec;
+    sec_elapsed = now->tv_sec - fsc_inode->last_op_time.tv_sec;
     if (sec_elapsed >= conf->time_idle_inode)
         is_idle = _gf_true;
 
@@ -64,7 +58,7 @@ fsc_inode_create(xlator_t *this, inode_t *inode, char *path)
     char *base_cur = NULL;
     char *tmp = NULL;
     char tmm_val = 0;
-    // fsc_inode = GF_CALLOC(1, sizeof(fsc_inode_t), gf_fsc_mt_fsc_inode_t);
+
     fsc_inode = mem_get0(priv->fsc_inode_mem_pool);
     if (fsc_inode == NULL) {
         goto out;
@@ -118,6 +112,23 @@ out:
 }
 
 void
+fsc_inode_pendding_delete(fsc_inode_t *fsc_inode, int32_t tag)
+{
+    fsc_conf_t *conf = fsc_inode->conf;
+    gf_msg(conf->this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+           "xlator=%p, pendding_delete fsc tag=%d,fd=%d,path=%s", conf->this,
+           tag, fsc_inode->fsc_fd, fsc_inode->local_path);
+
+    inode_ctx_put(fsc_inode->inode, conf->this, (uint64_t)0);
+
+    fsc_inodes_list_lock(conf);
+    {
+        list_add(&fsc_inode->inode_list, &conf->inodes_delete);
+    }
+    fsc_inodes_list_unlock(conf);
+}
+
+void
 fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
 {
     fsc_conf_t *conf = fsc_inode->conf;
@@ -125,7 +136,6 @@ fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
            "xlator=%p, destroy fsc tag=%d,fd=%d,path=%s", conf->this, tag,
            fsc_inode->fsc_fd, fsc_inode->local_path);
 
-    inode_ctx_put(fsc_inode->inode, conf->this, (uint64_t)0);
     inode_unref(fsc_inode->inode);
 
     fsc_inode_lock(fsc_inode);
@@ -141,7 +151,6 @@ fsc_inode_destroy(fsc_inode_t *fsc_inode, int32_t tag)
     GF_FREE(fsc_inode->link_target);
     GF_FREE(fsc_inode->write_block);
     pthread_mutex_destroy(&fsc_inode->inode_lock);
-    // GF_FREE(fsc_inode);
     mem_put(fsc_inode);
 }
 
@@ -543,6 +552,7 @@ fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     int64_t local_mtime = 0;
 
     fsc_inode_lock(fsc_inode);
+    gettimeofday(&fsc_inode->last_op_time, NULL);
     if (fsc_inode->link_target) {
         link = gf_strdup(fsc_inode->link_target);
     }

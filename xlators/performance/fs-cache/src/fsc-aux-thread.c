@@ -82,6 +82,9 @@ fsc_clear_idle_node(xlator_t *this)
 {
     fsc_conf_t *conf = NULL;
     fsc_inode_t *curr = NULL, *tmp = NULL;
+    struct timeval now = {
+        0,
+    };
     int32_t del_cnt = 0;
     conf = this->private;
 
@@ -89,16 +92,29 @@ fsc_clear_idle_node(xlator_t *this)
         return;
     }
 
-    gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "clear idle fsc inode start %d", conf->inodes_count);
+
+    /* first destoy last loop obj */
+    fsc_inodes_delete_list_lock(conf);
+    list_for_each_entry_safe(curr, tmp, &conf->inodes_delete, inode_list)
+    {
+        list_del_init(&curr->inode_list);
+        fsc_inode_destroy(curr, 1);
+    }
+    fsc_inodes_delete_list_unlock(conf);
+
+    gettimeofday(&now, NULL);
 
     fsc_inodes_list_lock(conf);
     list_for_each_entry_safe(curr, tmp, &conf->inodes, inode_list)
     {
-        if (fsc_inode_is_idle(curr)) {
+        if (fsc_inode_is_idle(curr, &now)) {
             conf->inodes_count--;
             list_del_init(&curr->inode_list);
-            fsc_inode_destroy(curr, 1);
+
+            fsc_inode_pendding_delete(curr, 1);
+
             del_cnt++;
             if (del_cnt >= 10000) {
                 goto unlock;
@@ -108,7 +124,7 @@ fsc_clear_idle_node(xlator_t *this)
 unlock:
     fsc_inodes_list_unlock(conf);
 
-    gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "clear idle fsc inode end %d", conf->inodes_count);
 }
 
@@ -153,6 +169,8 @@ fsc_aux_thread_proc(void *data)
             fsc_clear_idle_node(this);
         }
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
+        clear_interval = (conf->time_idle_inode / interval) / 2;
     }
 
 out:
