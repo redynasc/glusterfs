@@ -173,6 +173,9 @@ fsc_aux_thread_proc(void *data)
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
         clear_interval = (conf->time_idle_inode / interval) / 2;
+        if(clear_interval == 0){
+            clear_interval = 1;
+        }
     }
 
 out:

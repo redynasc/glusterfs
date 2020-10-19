@@ -296,7 +296,7 @@ fsc_inode_open_for_read(xlator_t *this, fsc_inode_t *fsc_inode)
     struct stat fstatbuf = {
         0,
     };
-    gettimeofday(&fsc_inode->last_op_time, NULL);
+
     if (fsc_inode->fsc_fd > 0) {
         op_ret = 0;
         goto out;
@@ -348,7 +348,7 @@ fsc_inode_open_for_write(xlator_t *this, fsc_inode_t *fsc_inode)
         op_ret = 0;
         goto out;
     }
-    gettimeofday(&fsc_inode->last_op_time, NULL);
+
     if (conf->direct_io_write == 1) {
         flag |= O_DIRECT;
     }
@@ -551,7 +551,7 @@ fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     int64_t local_mtime = 0;
 
     fsc_inode_lock(fsc_inode);
-    gettimeofday(&fsc_inode->last_op_time, NULL);
+
     if (fsc_inode->link_target) {
         link = gf_strdup(fsc_inode->link_target);
     }

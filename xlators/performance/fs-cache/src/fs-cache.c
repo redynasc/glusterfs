@@ -49,6 +49,21 @@ fsc_pass_through(fsc_conf_t *conf)
     return _gf_false;
 }
 
+
+fsc_inode_t *
+fsc_inode_get(inode_t *inode, xlator_t *this)
+{
+    uint64_t tmp_fsc_inode = 0;
+    fsc_inode_t *fsc_inode = NULL;
+    inode_ctx_get(inode, this, &tmp_fsc_inode);
+    fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
+    if (fsc_inode) {
+        gettimeofday(&fsc_inode->last_op_time, NULL);
+    }
+    return fsc_inode;
+}
+
+
 int32_t
 fsc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
@@ -459,7 +474,6 @@ int32_t
 fsc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset, uint32_t flags, dict_t *xdata)
 {
-    uint64_t tmp_fsc_inode = 0;
     fsc_inode_t *fsc_inode = NULL;
     fsc_local_t *local = NULL;
     int ret = -1;
@@ -475,8 +489,7 @@ fsc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return 0;
     }
 
-    inode_ctx_get(fd->inode, this, &tmp_fsc_inode);
-    fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
+    fsc_inode = fsc_inode_get(fd->inode, this);
     if (!fsc_inode) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_inode readv not find fsc_inode gfid=(%s)",
@@ -565,7 +578,6 @@ int32_t
 fsc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
              dict_t *xdata)
 {
-    uint64_t tmp_fsc_inode = 0;
     fsc_inode_t *fsc_inode = NULL;
     fsc_local_t *local = NULL;
     int ret = -1;
@@ -577,8 +589,7 @@ fsc_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
         goto wind;
     }
 
-    inode_ctx_get(loc->inode, this, &tmp_fsc_inode);
-    fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
+    fsc_inode = fsc_inode_get(loc->inode, this);
     if (!fsc_inode) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_inode readlink not find fsc_inode gfid=(%s)",
@@ -624,7 +635,6 @@ int
 fsc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
          dict_t *xdata)
 {
-    uint64_t tmp_fsc_inode = 0;
     fsc_inode_t *fsc_inode = NULL;
     gf_boolean_t cache_ok = _gf_false;
     int op_ret = -1;
@@ -634,8 +644,7 @@ fsc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
         goto wind;
     }
 
-    inode_ctx_get(loc->inode, this, &tmp_fsc_inode);
-    fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
+    fsc_inode = fsc_inode_get(loc->inode, this);
     if (!fsc_inode) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_inode open not find fsc_inode gfid=(%s)",
@@ -675,7 +684,6 @@ wind:
 int32_t
 fsc_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
-    uint64_t tmp_fsc_inode = 0;
     fsc_inode_t *fsc_inode = NULL;
 
     fsc_conf_t *conf = this->private;
@@ -685,8 +693,7 @@ fsc_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         goto wind;
     }
 
-    inode_ctx_get(fd->inode, this, &tmp_fsc_inode);
-    fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
+    fsc_inode = fsc_inode_get(fd->inode, this);
     if (!fsc_inode) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_inode flush not find fsc_inode gfid=(%s)",
@@ -720,7 +727,6 @@ int32_t
 fsc_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
     struct iatt *stat = NULL;
-    uint64_t tmp_fsc_inode = 0;
     fsc_inode_t *fsc_inode = NULL;
     fsc_conf_t *conf = this->private;
 
@@ -728,8 +734,7 @@ fsc_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         goto wind;
     }
 
-    inode_ctx_get(fd->inode, this, &tmp_fsc_inode);
-    fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
+    fsc_inode = fsc_inode_get(fd->inode, this);
     if (!fsc_inode) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_inode fstat not find fsc_inode gfid=(%s)",
@@ -757,7 +762,6 @@ int32_t
 fsc_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
               dict_t *xdata)
 {
-    uint64_t tmp_fsc_inode = 0;
     fsc_inode_t *fsc_inode = NULL;
 
     fsc_conf_t *conf = this->private;
@@ -768,8 +772,7 @@ fsc_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
         goto wind;
     }
 
-    inode_ctx_get(fd->inode, this, &tmp_fsc_inode);
-    fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
+    fsc_inode = fsc_inode_get(fd->inode, this);
     if (!fsc_inode) {
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_inode fgetxattr not find fsc_inode gfid=(%s)",
@@ -800,12 +803,10 @@ wind:
 int32_t
 fsc_forget(xlator_t *this, inode_t *inode)
 {
-    uint64_t tmp_fsc_inode = 0;
     fsc_inode_t *fsc_inode = NULL;
     fsc_conf_t *conf = this->private;
 
-    inode_ctx_get(inode, this, &tmp_fsc_inode);
-    fsc_inode = (fsc_inode_t *)(long)tmp_fsc_inode;
+    fsc_inode = fsc_inode_get(inode, this);
     if (fsc_inode) {
         gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
                "fsc_forget fsc inode %d,path=%s", fsc_inode->fsc_fd,
