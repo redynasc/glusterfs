@@ -6,8 +6,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <error.h>
+#include <errno.h>
 #include <stdbool.h>
-#include "./fs-cache-base-files.h"
+#include "./file_list-beta.h"
 #define MAX_READ_PER (1024*1024*8)
 
 int get_random_step(){
@@ -99,7 +100,7 @@ int main (int argc, char **argv)
         test_file(g_file_list[idx],verbose>0);
 
         if(usleep_time>0){
-            usleep(usleep_time);
+            usleep(usleep_time*1000);
         }else{
             usleep(5000); /*5ms*/
         }
