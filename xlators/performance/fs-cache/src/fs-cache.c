@@ -668,6 +668,7 @@ fsc_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
                "fsc_cache open local success,path=(%s),gfid=(%s)",
                fsc_inode->local_path, uuid_utoa(fsc_inode->inode->gfid));
+        GF_ATOMIC_INC(conf->fsc_counter.open_hit);
         STACK_UNWIND_STRICT(open, frame, op_ret, 0, fd, xdata);
         return 0;
     }
@@ -676,6 +677,7 @@ wind:
     gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_DEBUG,
            "fsc_inode open from server------,path=%s, gfid=(%s)", loc->path,
            uuid_utoa(loc->inode->gfid));
+    GF_ATOMIC_INC(conf->fsc_counter.open_miss);
     STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
                     loc, flags, fd, xdata);
     return 0;
