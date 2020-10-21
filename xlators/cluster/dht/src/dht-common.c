@@ -1444,6 +1444,7 @@ unlock:
 
         if (local->need_lookup_everywhere) {
             local->need_lookup_everywhere = 0;
+            local->cached_subvol = NULL;
             dht_lookup_everywhere(frame, this, &local->loc);
             return 0;
         }
@@ -2235,6 +2236,9 @@ dht_lookup_everywhere_done(call_frame_t *frame, xlator_t *this)
             return 0;
         }
         /* A hack */
+        local->op_ret = 0;
+        local->op_errno = 0;
+        local->gfid_missing = _gf_false;
         dht_lookup_directory(frame, this, &local->loc);
         return 0;
     }
