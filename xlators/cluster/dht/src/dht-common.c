@@ -864,7 +864,9 @@ dht_common_mark_mdsxattr(call_frame_t *frame, int *errst,
                    "Failed to get hashed subvol for path %s"
                    "gfid is %s ",
                    local->loc.path, gfid_local);
-            (*errst) = 1;
+            if (errst) {
+                (*errst) = 1;
+            }
             ret = -1;
             goto out;
         }

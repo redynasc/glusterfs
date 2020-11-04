@@ -13,6 +13,8 @@ rpm -ivh glusterfs-fuse-6.6-1.el7.x86_64.rpm
 rpm -ivh glusterfs-cli-6.6-1.el7.x86_64.rpm
 
 performance_so_dir=/usr/lib64/glusterfs/6.6/xlator/performance/
+cluster_so_dir=/usr/lib64/glusterfs/6.6/xlator/cluster/
+
 /bin/mv ${performance_so_dir}fs-cache.so -f ${performance_so_dir}fs-cache-old.so
 /bin/cp fs-cache.so -f ${performance_so_dir}
 chmod 755  ${performance_so_dir}fs-cache.so
@@ -24,4 +26,8 @@ chmod 755  ${performance_so_dir}md-cache.so
 /bin/mv ${performance_so_dir}io-threads.so -f ${performance_so_dir}io-threads-old.so
 /bin/cp io-threads.so -f ${performance_so_dir}
 chmod 755  ${performance_so_dir}io-threads.so
+
+/bin/mv ${cluster_so_dir}dht.so -f ${cluster_so_dir}dht-old.so
+/bin/cp dht.so -f ${cluster_so_dir}
+chmod 755  ${cluster_so_dir}dht.so
 
