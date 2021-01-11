@@ -1253,7 +1253,8 @@ init(xlator_t *this)
     GF_OPTION_INIT("pass-through", this->pass_through, bool, err);
 
     this->private = conf;
-
+    gf_msg(this->name, GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
+           "init v0.0.1");
     return 0;
 err:
     if (conf)
