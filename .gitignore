@@ -61,6 +61,11 @@ extras/run-gluster.tmpfiles
 extras/systemd/glusterd.service
 extras/systemd/glusterfssharedstorage.service
 extras/who-wrote-glusterfs/gitdm
+extras/LinuxRPM/*.rpm
+extras/LinuxRPM/run/
+extras/LinuxRPM/usr/
+extras/LinuxRPM/var/
+
 geo-replication/.tox
 geo-replication/gsyncd.conf
 geo-replication/src/gsyncd
@@ -129,3 +134,4 @@ xlators/features/cloudsync/src/cloudsync-autogen-fops.c
 xlators/features/cloudsync/src/cloudsync-autogen-fops.h
 xlators/features/utime/src/utime-autogen-fops.c
 xlators/features/utime/src/utime-autogen-fops.h
+
