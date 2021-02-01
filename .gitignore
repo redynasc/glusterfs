@@ -65,6 +65,7 @@ extras/LinuxRPM/*.rpm
 extras/LinuxRPM/run/
 extras/LinuxRPM/usr/
 extras/LinuxRPM/var/
+extras/LinuxRPM/glusterfs-update*
 
 geo-replication/.tox
 geo-replication/gsyncd.conf
