@@ -362,7 +362,7 @@ void
 ob_inode_wake(xlator_t *this, struct list_head *ob_fds)
 {
     ob_fd_t *ob_fd = NULL, *tmp = NULL;
-    fd_t * fd = NULL
+    fd_t *fd = NULL;
 
     if (!list_empty(ob_fds)) {
         list_for_each_entry_safe(ob_fd, tmp, ob_fds, ob_fds_on_inode)
