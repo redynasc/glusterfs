@@ -252,6 +252,8 @@ ob_wake_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         list_splice_init(&ob_fd->list, &fops_waiting_on_fd);
 
         if (op_ret < 0) {
+            gf_msg("open-behind", GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
+                        "----open failed fd=%p, ob=%p,op_ret=%d,op_errno=%d", ob_fd->fd, ob_fd, op_ret, op_errno);
             /* mark fd BAD for ever */
             ob_fd->op_errno = op_errno;
             ob_fd = NULL; /*shouldn't be freed*/
@@ -360,12 +362,15 @@ void
 ob_inode_wake(xlator_t *this, struct list_head *ob_fds)
 {
     ob_fd_t *ob_fd = NULL, *tmp = NULL;
+    fd_t * fd = NULL
 
     if (!list_empty(ob_fds)) {
         list_for_each_entry_safe(ob_fd, tmp, ob_fds, ob_fds_on_inode)
         {
+            fd = ob_fd->fd;
             ob_fd_wake(this, ob_fd->fd, ob_fd);
             ob_fd_free(ob_fd);
+            fd_unref(fd);
         }
     }
 }
@@ -377,7 +382,7 @@ ob_fd_copy(ob_fd_t *src, ob_fd_t *dst)
     if (!src || !dst)
         goto out;
 
-    dst->fd = src->fd;
+    dst->fd = fd_ref(src->fd);
     dst->loc.inode = inode_ref(src->loc.inode);
     gf_uuid_copy(dst->loc.gfid, src->loc.gfid);
     dst->flags = src->flags;
@@ -1266,7 +1271,7 @@ init(xlator_t *this)
 
     this->private = conf;
     gf_msg(this->name, GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
-           "init v0.0.1");
+           "init v0.0.2");
     return 0;
 err:
     if (conf)
