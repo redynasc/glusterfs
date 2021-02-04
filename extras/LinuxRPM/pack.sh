@@ -25,7 +25,7 @@ so_array+=("performance/md-cache")
 so_array+=("performance/open-behind")
 so_array+=("cluster/dht")
 
-
+rm /data/glusterfs/extras/LinuxRPM/run /data/glusterfs/extras/LinuxRPM/usr/ /data/glusterfs/extras/LinuxRPM/var/ -rf
 rm -fr ${pack_dir}
 rm -f ${pack_dir_tar}
 mkdir ${pack_dir}
