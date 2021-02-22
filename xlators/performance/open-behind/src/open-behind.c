@@ -195,8 +195,8 @@ ob_fd_new(void)
 void
 ob_fd_free(ob_fd_t *ob_fd)
 {
-    gf_msg("open-behind", GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
-                "----ob_fd free %p ob=%p", ob_fd->fd, ob_fd);
+    // gf_msg("open-behind", GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
+    //             "----ob_fd free %p ob=%p", ob_fd->fd, ob_fd);
     LOCK(&ob_fd->fd->inode->lock);
     {
         list_del_init(&ob_fd->ob_fds_on_inode);
@@ -211,8 +211,8 @@ ob_fd_free(ob_fd_t *ob_fd)
     if (ob_fd->open_frame) {
         /* If we sill have a frame it means that background open has never
          * been triggered. We need to release the pending reference. */
-        gf_msg("open-behind", GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
-                "----fd_unref in free %p, ob=%p", ob_fd->fd, ob_fd);
+        // gf_msg("open-behind", GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
+        //         "----fd_unref in free %p, ob=%p", ob_fd->fd, ob_fd);
         fd_unref(ob_fd->fd);
         STACK_DESTROY(ob_fd->open_frame->root);
     }
@@ -284,8 +284,8 @@ ob_wake_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         UNLOCK(&fd->inode->lock);
     }
 
-    gf_msg("open-behind", GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
-                "----fd_unref in wake_cbk %p, ob=%p", fd, ob_fd);
+    // gf_msg("open-behind", GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
+    //             "----fd_unref in wake_cbk %p, ob=%p", fd, ob_fd);
 
     if (ob_fd)
         ob_fd_free(ob_fd);
@@ -438,8 +438,8 @@ open_all_pending_fds_and_resume(xlator_t *this, inode_t *inode,
                     ob_fd_copy(ob_fd, tmp);
                     list_add_tail(&tmp->ob_fds_on_inode, &ob_fds);
 
-                    gf_msg("open-behind", GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
-                        "----fd copy tmp %p, ob=%p,tmp=%p", tmp->fd, ob_fd, tmp);
+                    // gf_msg("open-behind", GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
+                    //     "----fd copy tmp %p, ob=%p,tmp=%p", tmp->fd, ob_fd, tmp);
                 }
             }
         fd_unlock:
@@ -562,8 +562,8 @@ ob_open_behind(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
      * processed. If we finally wind the request in the foreground, then
      * ob_fd_free() will take care of this additional reference. */
     fd_ref(fd);
-    gf_msg(this->name, GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
-       "----fd_ref in open behind %p,ob=%p", fd, ob_fd);
+    // gf_msg(this->name, GF_LOG_WARNING, 0, OPEN_BEHIND_MSG_VOL_MISCONFIGURED,
+    //    "----fd_ref in open behind %p,ob=%p", fd, ob_fd);
 
     if (!open_in_progress && !unlinked) {
         STACK_UNWIND_STRICT(open, frame, 0, 0, fd, xdata);
