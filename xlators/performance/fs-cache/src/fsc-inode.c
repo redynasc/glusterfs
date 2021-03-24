@@ -277,7 +277,7 @@ fsc_inode_update(xlator_t *this, inode_t *inode, char *path, struct iatt *iabuf)
     }
     fsc_inode_unlock(fsc_inode);
 
-    gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
+    gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_TRACE,
            "fsc_inode fsc=%p update ia_size from %" PRId64 " to %" PRIu64
            ", path=%s, "
            "local_path=(%s),gfid=(%s)",
@@ -462,7 +462,7 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     iobref = iobref_new();
     iobref_add(iobref, iobuf);
 
-    gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
+    gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_TRACE,
            "fsc_inode read local=(%s),fd=%d, offset=%" PRId64
            ",req_size=%" GF_PRI_SIZET
            ", "
@@ -582,7 +582,7 @@ fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     local_mtime = local_statbuf.st_mtime;
     if (fsc_inode->s_iatt.ia_mtime > 0 &&
         local_mtime != fsc_inode->s_iatt.ia_mtime) {
-        gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
+        gf_msg(this->name, GF_LOG_DEBUG, errno, FS_CACHE_MSG_TRACE,
                "fsc_inode readlink  old lmtime=%" PRId64 " smtime=%" PRId64
                " path=(%s),gfid=(%s)",
                local_mtime, fsc_inode->s_iatt.ia_mtime, fsc_inode->local_path,
@@ -601,7 +601,7 @@ fsc_inode_read_link(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     fsc_inode_lock(fsc_inode);
     fsc_inode->link_target = gf_strdup(link_target);
     fsc_inode_unlock(fsc_inode);
-    gf_msg(this->name, GF_LOG_TRACE, errno, FS_CACHE_MSG_TRACE,
+    gf_msg(this->name, GF_LOG_DEBUG, errno, FS_CACHE_MSG_TRACE,
            "fsc_inode readlink local2 success path=(%s),link_target=(%s)",
            fsc_inode->local_path, fsc_inode->link_target);
 
