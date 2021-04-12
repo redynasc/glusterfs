@@ -276,4 +276,6 @@ fsc_set_local_gfid(xlator_t *this, const char *file_full_path, uuid_t in_gfid);
 int32_t
 fsc_get_local_gfid(const char *file_full_path, uuid_t o_gfid);
 
+time_t
+fsc_next_time(const char* period, struct timeval *now);
 #endif /* __fsc_H */

@@ -745,7 +745,7 @@ fsc_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     }
     stat = &fsc_inode->s_iatt;
 
-    gf_msg("fs-cache", GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
+    gf_msg("fs-cache", GF_LOG_DEBUG, 0, FS_CACHE_MSG_TRACE,
            "fsc_fstat from local fsc=%p  local_path=(%s) "
            "ia_size=%" PRId64 ",s_mtime=%" PRId64 ",s_mtime_nsec=%d",
            fsc_inode, fsc_inode->local_path, stat->ia_size, stat->ia_mtime,
@@ -1365,7 +1365,7 @@ struct volume_options options[] = {
     {.key = {"fsc-disk-reserve"},
      .type = GF_OPTION_TYPE_INT,
      .min = 10,
-     .max = 90,
+     .max = 95,
      .default_value = "10",
      .tags = {"fsc"},
      .description = "Size of free space in disk.",

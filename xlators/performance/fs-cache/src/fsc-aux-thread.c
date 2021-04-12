@@ -77,6 +77,30 @@ out:
     return;
 }
 
+
+void
+fsc_destroy_idle_node(xlator_t *this){
+    fsc_conf_t *conf = this->private;
+    fsc_inode_t *curr = NULL, *tmp = NULL;
+    int32_t count = 0;
+    if (conf->resycle_idle_inode == 0) {
+        return;
+    }
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+           "destroy idle fsc inode end");
+    /* first destoy last loop obj */
+    fsc_inodes_delete_list_lock(conf);
+    list_for_each_entry_safe(curr, tmp, &conf->inodes_delete, inode_list)
+    {
+        list_del_init(&curr->inode_list);
+        fsc_inode_destroy(curr, 1);
+        count += 1;
+    }
+    fsc_inodes_delete_list_unlock(conf);
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+           "destroy idle fsc inode end %d", count);
+}
+
 void
 fsc_clear_idle_node(xlator_t *this)
 {
@@ -86,6 +110,7 @@ fsc_clear_idle_node(xlator_t *this)
         0,
     };
     int32_t del_cnt = 0;
+    int32_t ret = 0;
     conf = this->private;
 
     if (conf->resycle_idle_inode == 0) {
@@ -124,11 +149,36 @@ fsc_clear_idle_node(xlator_t *this)
         }
     }
 unlock:
+
+    if (conf->direct_io_read == 0) {
+        fsc_inodes_delete_list_lock(conf);
+        list_for_each_entry_safe(curr, tmp, &conf->inodes_delete, inode_list){
+            if (curr->fsc_fd) {
+                ret = posix_fadvise(curr->fsc_fd, 0, 0, POSIX_FADV_DONTNEED);
+                gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                    "xlator=%p, clear cache fsc fd=%d,ret=%d,path=%s", conf->this, curr->fsc_fd, ret, curr->local_path);
+            }
+        }
+        fsc_inodes_delete_list_unlock(conf);
+    }
+
     fsc_inodes_list_unlock(conf);
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "clear idle fsc inode end %d", conf->inodes_count);
 }
+
+
+void
+fsc_calcu_next_clear_timer(xlator_t *this,  struct timeval *now, int64_t* next_clear_time){
+    //每日零晨2点
+    const char* period = "P60";//"D02:00:00";
+    time_t next_time = fsc_next_time(period, now);
+    *next_clear_time = next_time;
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+           "fsc_calcu_next_timer xlator=%p, next_clear_time = %" PRId64, this, *next_clear_time);
+}
+
 
 static void *
 fsc_aux_thread_proc(void *data)
@@ -136,17 +186,21 @@ fsc_aux_thread_proc(void *data)
     xlator_t *this = NULL;
     fsc_conf_t *conf = NULL;
     uint32_t interval = 0;
-    uint32_t clear_count = 0;
-    uint32_t clear_interval = 0;
-    int ret = -1;
 
+    int ret = -1;
+    time_t next_clear_time = 0;
+    time_t next_destory_time = 0;
+    struct timeval now = {
+        0,
+    };
     this = data;
     conf = this->private;
 
     interval = 15;
-    clear_interval = 60 / interval;
 
     glusterfs_this_set(this);
+    gettimeofday(&now, NULL);
+    fsc_calcu_next_clear_timer(this, &now, &next_clear_time);
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fsc_aux thread started xlator=%p,interval = %d seconds", this,
@@ -157,7 +211,7 @@ fsc_aux_thread_proc(void *data)
         ret = sleep(interval);
         if (ret > 0)
             break;
-        clear_count++;
+
         /* prevent thread errors while doing the health-check(s) */
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
@@ -167,15 +221,20 @@ fsc_aux_thread_proc(void *data)
         if (!conf->aux_thread_active)
             goto out;
 
-        if ((clear_count % clear_interval) == 0) {
-            fsc_clear_idle_node(this);
-        }
-        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+        gettimeofday(&now, NULL);
 
-        clear_interval = (conf->time_idle_inode / interval) / 2;
-        if(clear_interval == 0){
-            clear_interval = 1;
+        if (next_destory_time >0 && now.tv_sec > next_destory_time){
+            fsc_destroy_idle_node(this);
+            next_destory_time = 0;
         }
+
+        if (now.tv_sec > next_clear_time) {
+            fsc_clear_idle_node(this);
+            fsc_calcu_next_clear_timer(this, &now, &next_clear_time);
+            next_destory_time = now.tv_sec + 60;//3600;
+        }
+
+        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     }
 
 out:
