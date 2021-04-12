@@ -3,7 +3,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 
 fs_cache_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
-fs_cache_la_SOURCES = fs-cache.c fsc-inode.c fsc-block.c fsc-aux-thread.c fsc-storage.c
+fs_cache_la_SOURCES = fs-cache.c fsc-inode.c fsc-block.c fsc-aux-thread.c fsc-storage.c fsc-time.c
 fs_cache_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 
 noinst_HEADERS = fs-cache.h fs-cache-messages.h fsc-mem-types.h
