@@ -87,7 +87,7 @@ fsc_destroy_idle_node(xlator_t *this){
         return;
     }
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "destroy idle fsc inode end");
+           "destroy idle fsc inode start");
     /* first destoy last loop obj */
     fsc_inodes_delete_list_lock(conf);
     list_for_each_entry_safe(curr, tmp, &conf->inodes_delete, inode_list)
@@ -148,6 +148,8 @@ fsc_clear_idle_node(xlator_t *this)
             }
         }
     }
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+           "clear idle fsc inode end %d", conf->inodes_count);
 unlock:
 
     if (conf->direct_io_read == 0) {
@@ -165,7 +167,7 @@ unlock:
     fsc_inodes_list_unlock(conf);
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "clear idle fsc inode end %d", conf->inodes_count);
+           "clear cache fsc inode end %d", conf->inodes_count);
 }
 
 
@@ -231,7 +233,7 @@ fsc_aux_thread_proc(void *data)
         if (now.tv_sec > next_clear_time) {
             fsc_clear_idle_node(this);
             fsc_calcu_next_clear_timer(this, &now, &next_clear_time);
-            next_destory_time = now.tv_sec + 60;//3600;
+            next_destory_time = now.tv_sec + 3600;
         }
 
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
