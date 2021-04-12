@@ -65,7 +65,7 @@ fsc_pasre_period(const char* period){
     fsc_period_t fpt;
     fpt.p_type = 'U';
     if (len == 0) {
-        return;
+        return fpt;
     }
     fpt.p_type  = period[0];
     if ( fpt.p_type == 'P' ){
