@@ -174,7 +174,7 @@ unlock:
 void
 fsc_calcu_next_clear_timer(xlator_t *this,  struct timeval *now, int64_t* next_clear_time){
     //每日零晨2点
-    const char* period = "P60";//"D02:00:00";
+    const char* period = "D02:00:00";
     time_t next_time = fsc_next_time(period, now);
     *next_clear_time = next_time;
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
