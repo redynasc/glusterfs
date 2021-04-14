@@ -22,6 +22,8 @@
 #include <glusterfs/locking.h>
 #include <glusterfs/timespec.h>
 
+//#define gpInt_buff_count 10000
+#define gpInt_buff_count 100
 void
 fsc_disk_space_check(xlator_t *this)
 {
@@ -102,18 +104,18 @@ fsc_destroy_idle_node(xlator_t *this){
 }
 
 void
-fsc_clear_idle_node(xlator_t *this)
+fsc_reclaim_idle_node(xlator_t *this, int* fd_buff, int fd_buff_count)
 {
-    fsc_conf_t *conf = NULL;
+    fsc_conf_t *conf = this->private;
     fsc_inode_t *curr = NULL, *tmp = NULL;
-    struct list_head clear_cache_list;
     struct timeval now = {
         0,
     };
     int32_t del_cnt = 0;
-    int32_t clear_cache_cnt = 0;
+    int32_t reclaim_cache_cnt = 0;
     int32_t ret = 0;
-    conf = this->private;
+    int ii = 0;
+    int tmp_fd = 0;
 
     if (conf->resycle_idle_inode == 0) {
         return;
@@ -121,16 +123,6 @@ fsc_clear_idle_node(xlator_t *this)
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "clear idle fsc inode start %d", conf->inodes_count);
-    INIT_LIST_HEAD(&clear_cache_list);
-
-    /* first destoy last loop obj */
-    fsc_inodes_delete_list_lock(conf);
-    list_for_each_entry_safe(curr, tmp, &conf->inodes_delete, inode_list)
-    {
-        list_del_init(&curr->inode_list);
-        fsc_inode_destroy(curr, 1);
-    }
-    fsc_inodes_delete_list_unlock(conf);
 
     curr = NULL;
     tmp = NULL;
@@ -140,9 +132,15 @@ fsc_clear_idle_node(xlator_t *this)
     list_for_each_entry_safe(curr, tmp, &conf->inodes, inode_list)
     {
         if (conf->direct_io_read == 0) {
-            if (curr->fsc_fd && fsc_inode_is_idle_read(curr, &now)) {
-                list_add(&curr->inode_list, &clear_cache_list);
-                clear_cache_cnt += 1;
+            if (curr->fsc_fd 
+                && fsc_inode_is_idle_read(curr, &now)
+                && reclaim_cache_cnt < fd_buff_count) {
+
+                fd_buff[reclaim_cache_cnt] = curr->fsc_fd;
+                reclaim_cache_cnt += 1;
+
+                gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                    "xlator=%p, clear pagecache fsc fd=%d,path=%s", conf->this, curr->fsc_fd, curr->local_path);
             }
         }
 
@@ -161,32 +159,30 @@ fsc_clear_idle_node(xlator_t *this)
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "clear idle fsc inode end %d", conf->inodes_count);
 unlock:
+    fsc_inodes_list_unlock(conf);
 
     if (conf->direct_io_read == 0) {
-        list_for_each_entry_safe(curr, tmp, &clear_cache_list, inode_list){
-            if (curr->fsc_fd) {
-                ret = posix_fadvise(curr->fsc_fd, 0, 0, POSIX_FADV_DONTNEED);
-                gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-                    "xlator=%p, clear pagecache fsc fd=%d,ret=%d,path=%s", conf->this, curr->fsc_fd, ret, curr->local_path);
-            }
+        for (ii=0; ii < reclaim_cache_cnt; ++ii){
+            tmp_fd = fd_buff[ii];
+            ret = posix_fadvise(tmp_fd, 0, 0, POSIX_FADV_DONTNEED);
+            gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+                "xlator=%p, clear pagecache fd=%d,ret=%d", conf->this, tmp_fd, ret);
         }
     }
 
-    fsc_inodes_list_unlock(conf);
-
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "clear pagecache fsc inode end %d", clear_cache_cnt);
+           "clear pagecache fsc inode end %d", reclaim_cache_cnt);
 }
 
 
 void
-fsc_calcu_next_clear_timer(xlator_t *this,  struct timeval *now, int64_t* next_clear_time){
+fsc_calcu_next_reclaim_timer(xlator_t *this,  struct timeval *now, int64_t* next_reclaim_time){
     //每日零晨2点
-    const char* period = "P60";//"D02:00:00";
+    const char* period = "P60"; //"D02:00:00";
     time_t next_time = fsc_next_time(period, now);
-    *next_clear_time = next_time;
+    *next_reclaim_time = next_time;
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "fsc_calcu_next_timer xlator=%p, next_clear_time = %" PRId64, this, *next_clear_time);
+           "fsc_calcu_next_timer xlator=%p, next_reclaim_time = %" PRId64, this, *next_reclaim_time);
 }
 
 
@@ -198,7 +194,8 @@ fsc_aux_thread_proc(void *data)
     uint32_t interval = 0;
 
     int ret = -1;
-    time_t next_clear_time = 0;
+    int * gpInt_buff = MALLOC(sizeof(int)*gpInt_buff_count);
+    time_t next_reclaim_time = 0;
     time_t next_destory_time = 0;
     struct timeval now = {
         0,
@@ -210,7 +207,7 @@ fsc_aux_thread_proc(void *data)
 
     glusterfs_this_set(this);
     gettimeofday(&now, NULL);
-    fsc_calcu_next_clear_timer(this, &now, &next_clear_time);
+    fsc_calcu_next_reclaim_timer(this, &now, &next_reclaim_time);
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "fsc_aux thread started xlator=%p,interval = %d seconds", this,
@@ -238,9 +235,9 @@ fsc_aux_thread_proc(void *data)
             next_destory_time = 0;
         }
 
-        if (now.tv_sec > next_clear_time) {
-            fsc_clear_idle_node(this);
-            fsc_calcu_next_clear_timer(this, &now, &next_clear_time);
+        if (now.tv_sec > next_reclaim_time) {
+            fsc_reclaim_idle_node(this, gpInt_buff, gpInt_buff_count);
+            fsc_calcu_next_reclaim_timer(this, &now, &next_reclaim_time);
             next_destory_time = now.tv_sec + 3600;
         }
 
@@ -256,6 +253,8 @@ out:
         conf->aux_thread_active = _gf_false;
     }
     pthread_mutex_unlock(&conf->aux_lock);
+
+    FREE(gpInt_buff);
 
     return NULL;
 }
