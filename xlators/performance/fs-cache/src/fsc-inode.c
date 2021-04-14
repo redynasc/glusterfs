@@ -40,6 +40,22 @@ fsc_inode_is_idle(fsc_inode_t *fsc_inode, struct timeval *now)
 }
 
 gf_boolean_t
+fsc_inode_is_idle_read(fsc_inode_t *fsc_inode, struct timeval *now)
+{
+    gf_boolean_t is_idle = _gf_false;
+    int64_t sec_elapsed = 0;
+    fsc_conf_t *conf = fsc_inode->conf;
+
+    sec_elapsed = now->tv_sec - fsc_inode->last_read_time.tv_sec;
+    if (sec_elapsed >= conf->time_idle_inode/2){
+        is_idle = _gf_true;
+    }
+
+    return is_idle;
+}
+
+
+gf_boolean_t
 fsc_inode_is_cache_done(fsc_inode_t *fsc_inode)
 {
     return fsc_inode->fsc_size > 0;
@@ -94,6 +110,7 @@ fsc_inode_create(xlator_t *this, inode_t *inode, char *path)
     }
 
     gettimeofday(&fsc_inode->last_op_time, NULL);
+    gettimeofday(&fsc_inode->last_read_time, NULL);
 
     INIT_LIST_HEAD(&fsc_inode->inode_list);
     pthread_mutex_init(&fsc_inode->inode_lock, NULL);
@@ -461,6 +478,8 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     vec.iov_len = op_ret;
     iobref = iobref_new();
     iobref_add(iobref, iobuf);
+
+    gettimeofday(&fsc_inode->last_read_time, NULL);
 
     gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_TRACE,
            "fsc_inode read local=(%s),fd=%d, offset=%" PRId64

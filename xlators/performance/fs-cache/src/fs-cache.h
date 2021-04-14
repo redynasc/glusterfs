@@ -76,6 +76,7 @@ struct fsc_inode {
     int32_t write_block_len;
 
     struct timeval last_op_time;
+    struct timeval last_read_time;
     char *local_path;
     char *link_target; /* targer file in symlink*/
 
@@ -199,6 +200,9 @@ fsc_pass_through(fsc_conf_t *conf);
 
 gf_boolean_t
 fsc_inode_is_idle(fsc_inode_t *fsc_inode, struct timeval *now);
+
+gf_boolean_t
+fsc_inode_is_idle_read(fsc_inode_t *fsc_inode, struct timeval *now);
 
 fsc_inode_t *
 fsc_inode_update(xlator_t *this, inode_t *inode, char *path,

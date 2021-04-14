@@ -106,10 +106,12 @@ fsc_clear_idle_node(xlator_t *this)
 {
     fsc_conf_t *conf = NULL;
     fsc_inode_t *curr = NULL, *tmp = NULL;
+    struct list_head clear_cache_list;
     struct timeval now = {
         0,
     };
     int32_t del_cnt = 0;
+    int32_t clear_cache_cnt = 0;
     int32_t ret = 0;
     conf = this->private;
 
@@ -119,6 +121,7 @@ fsc_clear_idle_node(xlator_t *this)
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "clear idle fsc inode start %d", conf->inodes_count);
+    INIT_LIST_HEAD(&clear_cache_list);
 
     /* first destoy last loop obj */
     fsc_inodes_delete_list_lock(conf);
@@ -136,6 +139,13 @@ fsc_clear_idle_node(xlator_t *this)
     fsc_inodes_list_lock(conf);
     list_for_each_entry_safe(curr, tmp, &conf->inodes, inode_list)
     {
+        if (conf->direct_io_read == 0) {
+            if (curr->fsc_fd && fsc_inode_is_idle_read(curr, &now)) {
+                list_add(&curr->inode_list, &clear_cache_list);
+                clear_cache_cnt += 1;
+            }
+        }
+
         if (fsc_inode_is_idle(curr, &now)) {
             conf->inodes_count--;
             list_del_init(&curr->inode_list);
@@ -153,28 +163,26 @@ fsc_clear_idle_node(xlator_t *this)
 unlock:
 
     if (conf->direct_io_read == 0) {
-        fsc_inodes_delete_list_lock(conf);
-        list_for_each_entry_safe(curr, tmp, &conf->inodes_delete, inode_list){
+        list_for_each_entry_safe(curr, tmp, &clear_cache_list, inode_list){
             if (curr->fsc_fd) {
                 ret = posix_fadvise(curr->fsc_fd, 0, 0, POSIX_FADV_DONTNEED);
                 gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-                    "xlator=%p, clear cache fsc fd=%d,ret=%d,path=%s", conf->this, curr->fsc_fd, ret, curr->local_path);
+                    "xlator=%p, clear pagecache fsc fd=%d,ret=%d,path=%s", conf->this, curr->fsc_fd, ret, curr->local_path);
             }
         }
-        fsc_inodes_delete_list_unlock(conf);
     }
 
     fsc_inodes_list_unlock(conf);
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "clear cache fsc inode end %d", conf->inodes_count);
+           "clear pagecache fsc inode end %d", clear_cache_cnt);
 }
 
 
 void
 fsc_calcu_next_clear_timer(xlator_t *this,  struct timeval *now, int64_t* next_clear_time){
     //每日零晨2点
-    const char* period = "D02:00:00";
+    const char* period = "P60";//"D02:00:00";
     time_t next_time = fsc_next_time(period, now);
     *next_clear_time = next_time;
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
