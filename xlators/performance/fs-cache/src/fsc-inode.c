@@ -433,6 +433,8 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     }
     fsc_inode_unlock(fsc_inode);
 
+    gettimeofday(&fsc_inode->last_read_time, NULL);
+
     if (is_fault) {
         op_ret = -1;
         gf_msg(this->name, GF_LOG_TRACE, 0, FS_CACHE_MSG_TRACE,
@@ -478,8 +480,6 @@ fsc_inode_read(fsc_inode_t *fsc_inode, call_frame_t *frame, xlator_t *this,
     vec.iov_len = op_ret;
     iobref = iobref_new();
     iobref_add(iobref, iobuf);
-
-    gettimeofday(&fsc_inode->last_read_time, NULL);
 
     gf_msg(this->name, GF_LOG_DEBUG, 0, FS_CACHE_MSG_TRACE,
            "fsc_inode read local=(%s),fd=%d, offset=%" PRId64
