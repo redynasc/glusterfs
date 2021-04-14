@@ -22,8 +22,8 @@
 #include <glusterfs/locking.h>
 #include <glusterfs/timespec.h>
 
-//#define gpInt_buff_count 10000
-#define gpInt_buff_count 100
+#define gpInt_buff_count 10000
+// #define gpInt_buff_count 100
 void
 fsc_disk_space_check(xlator_t *this)
 {
@@ -178,7 +178,7 @@ unlock:
 void
 fsc_calcu_next_reclaim_timer(xlator_t *this,  struct timeval *now, int64_t* next_reclaim_time){
     //每日零晨2点
-    const char* period = "P60"; //"D02:00:00";
+    const char* period = "D02:00:00";
     time_t next_time = fsc_next_time(period, now);
     *next_reclaim_time = next_time;
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
