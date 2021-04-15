@@ -144,22 +144,23 @@ fsc_reclaim_idle_node(xlator_t *this, int* fd_buff, int fd_buff_count)
             }
         }
 
-        if (fsc_inode_is_idle(curr, &now)) {
+        if (del_cnt < 10000
+            && fsc_inode_is_idle(curr, &now)) {
             conf->inodes_count--;
             list_del_init(&curr->inode_list);
 
             fsc_inode_pendding_delete(curr, 1);
 
             del_cnt++;
-            if (del_cnt >= 10000) {
-                goto unlock;
-            }
         }
     }
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
            "clear idle fsc inode end %d", conf->inodes_count);
-unlock:
+
     fsc_inodes_list_unlock(conf);
+
+    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
+           "clear idle fsc inode end %d", conf->inodes_count);
 
     if (conf->direct_io_read == 0) {
         for (ii=0; ii < reclaim_cache_cnt; ++ii){
@@ -178,7 +179,8 @@ unlock:
 void
 fsc_calcu_next_reclaim_timer(xlator_t *this,  struct timeval *now, int64_t* next_reclaim_time){
     //每日零晨2点
-    const char* period = "D02:00:00";
+    // const char* period = "D02:00:00";
+    const char* period = "P360";
     time_t next_time = fsc_next_time(period, now);
     *next_reclaim_time = next_time;
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
