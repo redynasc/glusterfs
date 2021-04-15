@@ -154,9 +154,6 @@ fsc_reclaim_idle_node(xlator_t *this, int* fd_buff, int fd_buff_count)
             del_cnt++;
         }
     }
-    gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
-           "clear idle fsc inode end %d", conf->inodes_count);
-
     fsc_inodes_list_unlock(conf);
 
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
@@ -179,8 +176,8 @@ fsc_reclaim_idle_node(xlator_t *this, int* fd_buff, int fd_buff_count)
 void
 fsc_calcu_next_reclaim_timer(xlator_t *this,  struct timeval *now, int64_t* next_reclaim_time){
     //每日零晨2点
-    // const char* period = "D02:00:00";
-    const char* period = "P360";
+    const char* period = "D02:00:00";
+    // const char* period = "P360";
     time_t next_time = fsc_next_time(period, now);
     *next_reclaim_time = next_time;
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
