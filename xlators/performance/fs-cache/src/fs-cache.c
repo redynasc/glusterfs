@@ -1055,6 +1055,14 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("fsc-lookup-local", conf->lookup_local, options, uint32,
                      out);
 
+    GF_OPTION_RECONF("fsc-pcache-reclaim-idle", conf->pcache_reclaim_idle, options,
+                     uint32, out);
+
+    GF_OPTION_RECONF("fsc-pcache-reclaim-period", tmp, options, str, out);
+    conf->pcache_reclaim_period = gf_strdup(tmp);
+
+    conf->is_conf_change = _gf_true;
+
     ret = 0;
 out:
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
@@ -1062,10 +1070,11 @@ out:
            "cache_dir=%s,disk_reserve=%d,pass_through=%d,lookup_local=%d,"
            "resycle_idle_inode=%d,"
            "time_idle_inode="
-           "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%" PRIu64,
+           "%d,direct_io_read=%d,direct_io_write=%d,pcache-reclaim=[%s:%d],min_file_size=%" PRIu64,
            FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve,
            conf->pass_through, conf->lookup_local, conf->resycle_idle_inode,
            conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
+           conf->pcache_reclaim_period, conf->pcache_reclaim_idle,
            conf->min_file_size);
 
     return ret;
@@ -1119,6 +1128,9 @@ init(xlator_t *this)
         conf->is_enable = _gf_false;
     }
 
+    GF_OPTION_INIT("fsc-pcache-reclaim-idle", conf->pcache_reclaim_idle, uint32, out);
+    GF_OPTION_INIT("fsc-pcache-reclaim-period", conf->pcache_reclaim_period, str, out);
+
     GF_OPTION_INIT("fsc-cache-filter", tmp, str, out);
     fsc_resolve_filters(this, conf, tmp);
 
@@ -1127,10 +1139,11 @@ init(xlator_t *this)
            "cache_dir=%s,disk_reserve=%d,pass_through=%d,lookup_local=%d,"
            "resycle_idle_inode=%d,"
            "time_idle_inode="
-           "%d,direct_io_read=%d,direct_io_write=%d,min_file_size=%" PRIu64,
+           "%d,direct_io_read=%d,direct_io_write=%d,pcache-reclaim=[%s:%d],min_file_size=%" PRIu64,
            FSC_CACHE_VERSION, this, conf->cache_dir, conf->disk_reserve,
            conf->pass_through, conf->lookup_local, conf->resycle_idle_inode,
            conf->time_idle_inode, conf->direct_io_read, conf->direct_io_write,
+           conf->pcache_reclaim_period, conf->pcache_reclaim_idle,
            conf->min_file_size);
 
     INIT_LIST_HEAD(&conf->inodes);
@@ -1365,12 +1378,30 @@ struct volume_options options[] = {
     {.key = {"fsc-disk-reserve"},
      .type = GF_OPTION_TYPE_INT,
      .min = 10,
-     .max = 95,
+     .max = 98,
      .default_value = "10",
      .tags = {"fsc"},
      .description = "Size of free space in disk.",
      .op_version = {1},
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"fsc-pcache-reclaim-idle"},
+         .type = GF_OPTION_TYPE_INT,
+         .min = 60,
+         .max = 31536000,
+         .default_value = "43200",
+         .tags = {"fsc"},
+         .description = "how long time(sec) the file unread",
+         .op_version = {1},
+         .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC
+    },
+    {.key = {"fsc-pcache-reclaim-period"},
+        .type = GF_OPTION_TYPE_STR,
+        .op_version = {1},
+        .tags = {"fsc"},
+        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .default_value = "D02:05:00",
+        .description = "the period of reclaim the page cache of idle file",
+    },
     {.key = {"fsc-resycle-idle-inode"},
      .type = GF_OPTION_TYPE_INT,
      .min = 0,

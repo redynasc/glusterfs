@@ -33,7 +33,7 @@ fsc_inode_is_idle(fsc_inode_t *fsc_inode, struct timeval *now)
     conf = fsc_inode->conf;
 
     sec_elapsed = now->tv_sec - fsc_inode->last_op_time.tv_sec;
-    if (sec_elapsed >= conf->time_idle_inode/2) //tmp 
+    if (sec_elapsed >= conf->time_idle_inode)
         is_idle = _gf_true;
 
     return is_idle;
@@ -47,7 +47,7 @@ fsc_inode_is_idle_read(fsc_inode_t *fsc_inode, struct timeval *now)
     fsc_conf_t *conf = fsc_inode->conf;
 
     sec_elapsed = now->tv_sec - fsc_inode->last_read_time.tv_sec;
-    if (sec_elapsed >= conf->time_idle_inode/2){
+    if (sec_elapsed >= conf->pcache_reclaim_idle){
         is_idle = _gf_true;
     }
 

@@ -23,10 +23,10 @@
 
 struct fsc_period {
     char p_type;
-    int8_t week;
-    int8_t hour;
-    int8_t minute;
-    int32_t sec;
+    uint8_t week;  //0--6  //Sunday  --  Saturday
+    uint8_t hour;
+    uint8_t minute;
+    uint32_t sec;
 };
 
 typedef struct fsc_period fsc_period_t;
@@ -72,28 +72,59 @@ fsc_pasre_period(const char* period){
     	//"P60" 每隔固定时间执行
         fpt.sec = 0;
         if (len >= 2){
-            fpt.sec = atoi(&period[1]);
+            fpt.sec = (uint32_t)atoi(&period[1]);
         }
     }
     else if ( fpt.p_type == 'D' ){
         //"D02:00:00" 每天的某一时间执行
         fpt.hour = 0;
         if (len >= 3){
-            fpt.hour = (int8_t)atoi(&period[1]);
+            fpt.hour = (uint8_t)atoi(&period[1]);
         }
         fpt.minute = 0;
         if (len >= 6){
-            fpt.minute = (int8_t)atoi(&period[4]);
+            fpt.minute = (uint8_t)atoi(&period[4]);
         }
         fpt.sec = 0;
         if (len >= 9){
-            fpt.sec = (int8_t)atoi(&period[7]);
+            fpt.sec = (uint8_t)atoi(&period[7]);
         }
     }else if ( fpt.p_type == 'W' ){
-        //"W01 02:00:00" 每周几的某一时间执行  todo
+        //"W01 02:00:00" 每周几的某一时间执行
+        //"W01-02:00:00" 每周几的某一时间执行
+        fpt.week = 0;
+        if (len >= 3){
+            fpt.week = (uint8_t)atoi(&period[1]);
+        }
+        fpt.hour = 0;
+        if (len >= 6){
+            fpt.hour = (uint8_t)atoi(&period[4]);
+        }
+        fpt.minute = 0;
+        if (len >= 9){
+            fpt.minute = (uint8_t)atoi(&period[7]);
+        }
+        fpt.sec = 0;
+        if (len >= 12){
+            fpt.sec = (uint8_t)atoi(&period[10]);
+        }
     }
+
+    if(fpt.week > 6){
+        fpt.week = 6;
+    }
+
+    if(fpt.hour > 23){
+        fpt.hour = 23;
+    }
+
+    if(fpt.minute > 59){
+        fpt.minute = 59;
+    }
+    // printf("--%c w%d,h%d,m%d,s%d\n",fpt.p_type, fpt.week, fpt.hour,fpt.minute,fpt.sec);
     return fpt;
 }
+
 
 time_t
 fsc_next_time(const char* period, struct timeval *now){
@@ -106,6 +137,32 @@ fsc_next_time(const char* period, struct timeval *now){
         ret = (time_t)fsc_today_local_zero(now->tv_sec) + fpt.hour*3600 + fpt.minute*60 + fpt.sec;
         if (ret < now->tv_sec){
               ret += 24*3600;
+        }
+    }
+    else if ( fpt.p_type == 'W' ){
+        time_t time_seconds = now->tv_sec;
+        struct tm now_time = {0,};
+        localtime_r(&time_seconds, &now_time);
+        int32_t n_week = now_time.tm_wday;
+        int32_t c_week = fpt.week;
+
+        ret = (time_t)fsc_today_local_zero(now->tv_sec) + fpt.hour*3600 + fpt.minute*60 + fpt.sec;
+        if(n_week == 0){
+            n_week = 7;
+        }        
+        if(c_week == 0){
+            c_week = 7;
+        }
+
+        int32_t week_diff = c_week - n_week;
+        if (week_diff > 0){
+            ret += week_diff*24*3600;
+        }else if( week_diff < 0){
+            ret += (7 + week_diff)*24*3600;
+        }else{
+            if(ret < now->tv_sec){
+                ret += 7*24*3600;
+            }
         }
     }else{
         //default or error

@@ -1183,6 +1183,14 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "performance/fs-cache",
      .op_version = 1,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
+    {.key = "performance.fsc-pcache-reclaim-idle",
+     .voltype = "performance/fs-cache",
+     .op_version = 1,
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
+    {.key = "performance.fsc-disk-reserve",
+     .voltype = "performance/fsc-pcache-reclaim-period",
+     .op_version = 1,
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
 
     /* IO-cache xlator options */
     {.key = "performance.cache-max-file-size",

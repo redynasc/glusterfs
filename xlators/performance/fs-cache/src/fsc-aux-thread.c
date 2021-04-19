@@ -176,8 +176,10 @@ fsc_reclaim_idle_node(xlator_t *this, int* fd_buff, int fd_buff_count)
 void
 fsc_calcu_next_reclaim_timer(xlator_t *this,  struct timeval *now, int64_t* next_reclaim_time){
     //每日零晨2点
-    const char* period = "D02:00:00";
+    fsc_conf_t *conf = this->private;
+    // const char* period = "D02:00:00";
     // const char* period = "P360";
+    const char* period = conf->pcache_reclaim_period;
     time_t next_time = fsc_next_time(period, now);
     *next_reclaim_time = next_time;
     gf_msg(this->name, GF_LOG_INFO, 0, FS_CACHE_MSG_INFO,
@@ -241,6 +243,11 @@ fsc_aux_thread_proc(void *data)
         }
 
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+
+        if (conf->is_conf_change){
+            conf->is_conf_change = _gf_false;
+            fsc_calcu_next_reclaim_timer(this, &now, &next_reclaim_time);
+        }
     }
 
 out:

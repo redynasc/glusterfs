@@ -136,6 +136,11 @@ struct fsc_conf {
     struct mem_pool *fsc_inode_mem_pool;
 
     xlator_t *this;
+
+    char* pcache_reclaim_period;
+    uint32_t pcache_reclaim_idle;
+    gf_boolean_t is_conf_change;
+
 };
 
 typedef struct fsc_conf fsc_conf_t;
